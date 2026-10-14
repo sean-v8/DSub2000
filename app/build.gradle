@@ -1,10 +1,23 @@
 apply plugin: 'com.android.application'
 
+def getGitHash = { ->
+	try {
+		def stdout = new ByteArrayOutputStream()
+		exec {
+			commandLine 'git', 'rev-parse', '--short', 'HEAD'
+			standardOutput = stdout
+		}
+		return stdout.toString().trim()
+	} catch (Exception e) {
+		return "nogit"
+	}
+}
+
 android {
 	compileSdkVersion 36
 
 	defaultConfig {
-		applicationId "github.paroj.dsub2000"
+		applicationId "github.sean_v8.dsub2000"
 		minSdkVersion 24
 		targetSdkVersion 36
 		versionCode 219
@@ -71,6 +84,14 @@ android {
 	compileOptions {
 		sourceCompatibility JavaVersion.VERSION_17
 		targetCompatibility JavaVersion.VERSION_17
+	}
+
+	applicationVariants.all { variant ->
+		variant.outputs.all { output ->
+			def date = new Date().format("yyMMdd")
+			def gitHash = getGitHash()
+			outputFileName = "DSub2000_sean-v8_${date}_${gitHash}.apk"
+		}
 	}
 }
 
