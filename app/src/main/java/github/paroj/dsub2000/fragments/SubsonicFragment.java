@@ -2052,7 +2052,7 @@ public class SubsonicFragment extends Fragment implements SwipeRefreshLayout.OnR
 
 	public abstract class RecursiveLoader extends LoadingTask<Boolean> {
 		protected MusicService musicService;
-		protected static final int MAX_SONGS = 500;
+		protected static final int MAX_SONGS = 10000;
 		protected boolean playNowOverride = false;
 		protected List<Entry> songs = new ArrayList<>();
 
