@@ -353,17 +353,26 @@ public class SettingsFragment extends PreferenceCompatFragment implements Shared
 					Boolean syncEnabled = (Boolean) newValue;
 
 					Account account = new Account(Constants.SYNC_ACCOUNT_NAME, Constants.SYNC_ACCOUNT_TYPE);
+
+					// Configure automatic sync for all authorities
 					ContentResolver.setSyncAutomatically(account, Constants.SYNC_ACCOUNT_PLAYLIST_AUTHORITY, syncEnabled);
 					ContentResolver.setSyncAutomatically(account, Constants.SYNC_ACCOUNT_PODCAST_AUTHORITY, syncEnabled);
+					ContentResolver.setSyncAutomatically(account, Constants.SYNC_ACCOUNT_LIBRARY_AUTHORITY, syncEnabled);
+					ContentResolver.setSyncAutomatically(account, Constants.SYNC_ACCOUNT_MOST_RECENT_AUTHORITY, syncEnabled);
+					ContentResolver.setSyncAutomatically(account, Constants.SYNC_ACCOUNT_STARRED_AUTHORITY, syncEnabled);
 
 					DownloadService downloadService = DownloadService.getInstance();
 					if (syncEnabled) {
-						// Request immediate manual and expedited sync via Android ContentResolver
+						// Request immediate manual and expedited sync across all authorities
 						Bundle extras = new Bundle();
 						extras.putBoolean(ContentResolver.SYNC_EXTRAS_MANUAL, true);
 						extras.putBoolean(ContentResolver.SYNC_EXTRAS_EXPEDITED, true);
+
 						ContentResolver.requestSync(account, Constants.SYNC_ACCOUNT_PLAYLIST_AUTHORITY, extras);
 						ContentResolver.requestSync(account, Constants.SYNC_ACCOUNT_PODCAST_AUTHORITY, extras);
+						ContentResolver.requestSync(account, Constants.SYNC_ACCOUNT_LIBRARY_AUTHORITY, extras);
+						ContentResolver.requestSync(account, Constants.SYNC_ACCOUNT_MOST_RECENT_AUTHORITY, extras);
+						ContentResolver.requestSync(account, Constants.SYNC_ACCOUNT_STARRED_AUTHORITY, extras);
 
 						if (downloadService != null) {
 							downloadService.post(new Runnable() {
@@ -385,14 +394,18 @@ public class SettingsFragment extends PreferenceCompatFragment implements Shared
 							Util.toast(context, "Background sync stopped");
 						}
 
-						// Cancel any active Android sync requests for these authorities
+						// Cancel active Android sync requests for all authorities
 						ContentResolver.cancelSync(account, Constants.SYNC_ACCOUNT_PLAYLIST_AUTHORITY);
 						ContentResolver.cancelSync(account, Constants.SYNC_ACCOUNT_PODCAST_AUTHORITY);
+						ContentResolver.cancelSync(account, Constants.SYNC_ACCOUNT_LIBRARY_AUTHORITY);
+						ContentResolver.cancelSync(account, Constants.SYNC_ACCOUNT_MOST_RECENT_AUTHORITY);
+						ContentResolver.cancelSync(account, Constants.SYNC_ACCOUNT_STARRED_AUTHORITY);
 					}
 
 					return true;
 				}
 			});
+
 			syncInterval.setOnPreferenceChangeListener(new Preference.OnPreferenceChangeListener() {
 				@Override
 				public boolean onPreferenceChange(Preference preference, Object newValue) {
@@ -401,6 +414,9 @@ public class SettingsFragment extends PreferenceCompatFragment implements Shared
 					Account account = new Account(Constants.SYNC_ACCOUNT_NAME, Constants.SYNC_ACCOUNT_TYPE);
 					ContentResolver.addPeriodicSync(account, Constants.SYNC_ACCOUNT_PLAYLIST_AUTHORITY, new Bundle(), 60L * syncInterval);
 					ContentResolver.addPeriodicSync(account, Constants.SYNC_ACCOUNT_PODCAST_AUTHORITY, new Bundle(), 60L * syncInterval);
+					ContentResolver.addPeriodicSync(account, Constants.SYNC_ACCOUNT_LIBRARY_AUTHORITY, new Bundle(), 60L * syncInterval);
+					ContentResolver.addPeriodicSync(account, Constants.SYNC_ACCOUNT_MOST_RECENT_AUTHORITY, new Bundle(), 60L * syncInterval);
+					ContentResolver.addPeriodicSync(account, Constants.SYNC_ACCOUNT_STARRED_AUTHORITY, new Bundle(), 60L * syncInterval);
 
 					return true;
 				}
@@ -412,13 +428,17 @@ public class SettingsFragment extends PreferenceCompatFragment implements Shared
 				manualSyncPref.setOnPreferenceClickListener(new Preference.OnPreferenceClickListener() {
 					@Override
 					public boolean onPreferenceClick(Preference preference) {
-						// Request manual expedited sync pass via ContentResolver
+						// Request manual expedited sync pass across all authorities
 						Account account = new Account(Constants.SYNC_ACCOUNT_NAME, Constants.SYNC_ACCOUNT_TYPE);
 						Bundle extras = new Bundle();
 						extras.putBoolean(ContentResolver.SYNC_EXTRAS_MANUAL, true);
 						extras.putBoolean(ContentResolver.SYNC_EXTRAS_EXPEDITED, true);
+
 						ContentResolver.requestSync(account, Constants.SYNC_ACCOUNT_PLAYLIST_AUTHORITY, extras);
 						ContentResolver.requestSync(account, Constants.SYNC_ACCOUNT_PODCAST_AUTHORITY, extras);
+						ContentResolver.requestSync(account, Constants.SYNC_ACCOUNT_LIBRARY_AUTHORITY, extras);
+						ContentResolver.requestSync(account, Constants.SYNC_ACCOUNT_MOST_RECENT_AUTHORITY, extras);
+						ContentResolver.requestSync(account, Constants.SYNC_ACCOUNT_STARRED_AUTHORITY, extras);
 
 						DownloadService downloadService = DownloadService.getInstance();
 						if (downloadService != null) {
