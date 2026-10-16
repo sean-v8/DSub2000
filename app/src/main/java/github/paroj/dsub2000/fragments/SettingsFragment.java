@@ -384,6 +384,10 @@ public class SettingsFragment extends PreferenceCompatFragment implements Shared
 							});
 							Util.toast(context, "Background sync stopped");
 						}
+
+						// Cancel any active Android sync requests for these authorities
+						ContentResolver.cancelSync(account, Constants.SYNC_ACCOUNT_PLAYLIST_AUTHORITY);
+						ContentResolver.cancelSync(account, Constants.SYNC_ACCOUNT_PODCAST_AUTHORITY);
 					}
 
 					return true;
