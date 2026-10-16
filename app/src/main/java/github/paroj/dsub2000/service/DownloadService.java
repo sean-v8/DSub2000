@@ -624,7 +624,10 @@ public class DownloadService extends MediaLibraryService {
 		synchronized (this) {
 			backgroundDownloadList.addAll(toAdd);
 
-			// Hierarchical sort: Artist -> Album -> Track Number
+			// Hierarchical sort: Artist -> Album -> Track Number using a robust Collator
+			final java.text.Collator collator = java.text.Collator.getInstance();
+			collator.setStrength(java.text.Collator.PRIMARY); // Ignore case and minor accent variations for clean grouping
+
 			Collections.sort(backgroundDownloadList, new Comparator<DownloadFile>() {
 				@Override
 				public int compare(DownloadFile f1, DownloadFile f2) {
@@ -632,15 +635,15 @@ public class DownloadService extends MediaLibraryService {
 					MusicDirectory.Entry s2 = f2.getSong();
 
 					// 1. Compare Artists
-					String artist1 = s1.getArtist() != null ? s1.getArtist() : "";
-					String artist2 = s2.getArtist() != null ? s2.getArtist() : "";
-					int artistCompare = artist1.compareToIgnoreCase(artist2);
+					String artist1 = s1.getArtist() != null ? s1.getArtist().trim() : "";
+					String artist2 = s2.getArtist() != null ? s2.getArtist().trim() : "";
+					int artistCompare = collator.compare(artist1, artist2);
 					if (artistCompare != 0) return artistCompare;
 
 					// 2. Compare Albums
-					String album1 = s1.getAlbum() != null ? s1.getAlbum() : "";
-					String album2 = s2.getAlbum() != null ? s2.getAlbum() : "";
-					int albumCompare = album1.compareToIgnoreCase(album2);
+					String album1 = s1.getAlbum() != null ? s1.getAlbum().trim() : "";
+					String album2 = s2.getAlbum() != null ? s2.getAlbum().trim() : "";
+					int albumCompare = collator.compare(album1, album2);
 					if (albumCompare != 0) return albumCompare;
 
 					// 3. Compare Track Numbers (keeps album tracklisting intact)
