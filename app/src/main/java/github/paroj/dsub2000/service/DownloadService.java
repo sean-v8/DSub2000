@@ -847,7 +847,7 @@ public class DownloadService extends MediaLibraryService {
 	}
 
 	public synchronized void clearBackground() {
-		if(currentDownloading != null && backgroundDownloadList.contains(currentDownloading)) {
+		if(currentDownloading != null) {
 			currentDownloading.cancelDownload();
 			currentDownloading = null;
 		}

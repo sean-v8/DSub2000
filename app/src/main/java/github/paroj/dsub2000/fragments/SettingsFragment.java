@@ -356,9 +356,9 @@ public class SettingsFragment extends PreferenceCompatFragment implements Shared
 					ContentResolver.setSyncAutomatically(account, Constants.SYNC_ACCOUNT_PLAYLIST_AUTHORITY, syncEnabled);
 					ContentResolver.setSyncAutomatically(account, Constants.SYNC_ACCOUNT_PODCAST_AUTHORITY, syncEnabled);
 
-					// Immediately trigger checkDownloads if sync is turned on
+					DownloadService downloadService = DownloadService.getInstance();
 					if (syncEnabled) {
-						DownloadService downloadService = DownloadService.getInstance();
+						// Immediately trigger checkDownloads if sync is turned on
 						if (downloadService != null) {
 							downloadService.post(new Runnable() {
 								@Override
@@ -366,6 +366,17 @@ public class SettingsFragment extends PreferenceCompatFragment implements Shared
 									downloadService.checkDownloads();
 								}
 							});
+						}
+					} else {
+						// Immediately clear background downloads if sync is turned off
+						if (downloadService != null) {
+							downloadService.post(new Runnable() {
+								@Override
+								public void run() {
+									downloadService.clearBackground();
+								}
+							});
+							Util.toast(context, "Background sync stopped");
 						}
 					}
 
