@@ -2320,20 +2320,30 @@ public class DownloadService extends MediaLibraryService {
 			}
 		}
 
-		// Inside your checkDownloads() notification block:
 		boolean hasActiveDownloads = !backgroundDownloadList.isEmpty() || !downloadList.isEmpty();
 		if (hasActiveDownloads) {
 			int totalRemaining = backgroundDownloadList.size() + downloadList.size();
-			String currentTitle = (currentDownloading != null && currentDownloading.getSong() != null)
-					? currentDownloading.getSong().getTitle()
-					: "Unknown";
+
+			// Fallback to the next pending item if currentDownloading is temporarily null
+			DownloadFile displayDownload = currentDownloading;
+			if (displayDownload == null) {
+				if (!downloadList.isEmpty()) {
+					displayDownload = downloadList.get(0);
+				} else if (!backgroundDownloadList.isEmpty()) {
+					displayDownload = backgroundDownloadList.get(0);
+				}
+			}
+
+			String currentTitle = (displayDownload != null && displayDownload.getSong() != null)
+					? displayDownload.getSong().getTitle()
+					: "Initializing...";
 
 			Log.i(TAG, "Sync Progress: Downloading \"" + currentTitle + "\" | Remaining items: " + totalRemaining);
 
 			// Throttle UI notification updates to once every 3 seconds to bypass Android 15 throttling/cooldown
 			long currentTime = System.currentTimeMillis();
 			if (currentTime - lastNotificationTime > 3000L || !downloadOngoing) {
-				Notifications.showDownloadingNotification(this, this, handler, currentDownloading, totalRemaining);
+				Notifications.showDownloadingNotification(this, this, handler, displayDownload, totalRemaining);
 				lastNotificationTime = currentTime;
 			}
 
