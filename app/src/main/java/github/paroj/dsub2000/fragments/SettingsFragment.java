@@ -220,12 +220,12 @@ public class SettingsFragment extends PreferenceCompatFragment implements Shared
 					ActivityCompat.requestPermissions(context, new String[]{ Manifest.permission.ACCESS_COARSE_LOCATION }, SubsonicActivity.PERMISSIONS_REQUEST_LOCATION);
 				}
 			}
-            if (actionBarColor != null && actionBarColorNowPlaying != null) {
-                setColorIcon(actionBarColor, -1);
-                setColorIcon(actionBarColorNowPlaying, -1);
-                sharedPreferences.edit().putInt(Constants.PREFERENCES_KEY_ACTION_BAR_COLOR, -1).commit();
-                sharedPreferences.edit().putInt(Constants.PREFERENCES_KEY_ACTION_BAR_NOW_PLAYING_COLOR, -1).commit();
-            }
+			if (actionBarColor != null && actionBarColorNowPlaying != null) {
+				setColorIcon(actionBarColor, -1);
+				setColorIcon(actionBarColorNowPlaying, -1);
+				sharedPreferences.edit().putInt(Constants.PREFERENCES_KEY_ACTION_BAR_COLOR, -1).commit();
+				sharedPreferences.edit().putInt(Constants.PREFERENCES_KEY_ACTION_BAR_NOW_PLAYING_COLOR, -1).commit();
+			}
 		} else if(Constants.PREFERENCES_KEY_DLNA_CASTING_ENABLED.equals(key)) {
 			DownloadService downloadService = DownloadService.getInstance();
 			if(downloadService != null) {
@@ -239,23 +239,23 @@ public class SettingsFragment extends PreferenceCompatFragment implements Shared
 					mediaRouter.removeDLNAProvider();
 				}
 			}
-        } else if (Constants.PREFERENCES_KEY_COLOR_ACTION_BAR.equals(key)) {
-            if (actionBarColor != null && actionBarColorNowPlaying != null) {
-                boolean isActionBarColored = sharedPreferences.getBoolean(key, true);
-                actionBarColor.setEnabled(isActionBarColored);
-                actionBarColorNowPlaying.setEnabled(isActionBarColored);
-            }
-        } else if (Constants.PREFERENCES_KEY_ACTION_BAR_COLOR.equals(key)) {
-            if (actionBarColor != null) {
-                int color = sharedPreferences.getInt(key, -1);
-                setColorIcon(actionBarColor, color);
-            }
-        } else if (Constants.PREFERENCES_KEY_ACTION_BAR_NOW_PLAYING_COLOR.equals(key)) {
-            if (actionBarColorNowPlaying != null) {
-                int color = sharedPreferences.getInt(key, -1);
-                setColorIcon(actionBarColorNowPlaying, color);
-            }
-        }
+		} else if (Constants.PREFERENCES_KEY_COLOR_ACTION_BAR.equals(key)) {
+			if (actionBarColor != null && actionBarColorNowPlaying != null) {
+				boolean isActionBarColored = sharedPreferences.getBoolean(key, true);
+				actionBarColor.setEnabled(isActionBarColored);
+				actionBarColorNowPlaying.setEnabled(isActionBarColored);
+			}
+		} else if (Constants.PREFERENCES_KEY_ACTION_BAR_COLOR.equals(key)) {
+			if (actionBarColor != null) {
+				int color = sharedPreferences.getInt(key, -1);
+				setColorIcon(actionBarColor, color);
+			}
+		} else if (Constants.PREFERENCES_KEY_ACTION_BAR_NOW_PLAYING_COLOR.equals(key)) {
+			if (actionBarColorNowPlaying != null) {
+				int color = sharedPreferences.getInt(key, -1);
+				setColorIcon(actionBarColorNowPlaying, color);
+			}
+		}
 
 		scheduleBackup();
 	}
@@ -356,6 +356,19 @@ public class SettingsFragment extends PreferenceCompatFragment implements Shared
 					ContentResolver.setSyncAutomatically(account, Constants.SYNC_ACCOUNT_PLAYLIST_AUTHORITY, syncEnabled);
 					ContentResolver.setSyncAutomatically(account, Constants.SYNC_ACCOUNT_PODCAST_AUTHORITY, syncEnabled);
 
+					// Immediately trigger checkDownloads if sync is turned on
+					if (syncEnabled) {
+						DownloadService downloadService = DownloadService.getInstance();
+						if (downloadService != null) {
+							downloadService.post(new Runnable() {
+								@Override
+								public void run() {
+									downloadService.checkDownloads();
+								}
+							});
+						}
+					}
+
 					return true;
 				}
 			});
@@ -371,6 +384,29 @@ public class SettingsFragment extends PreferenceCompatFragment implements Shared
 					return true;
 				}
 			});
+
+			// Manual Sync Now button click listener
+			Preference manualSyncPref = findPreference("manual_sync_trigger");
+			if (manualSyncPref != null) {
+				manualSyncPref.setOnPreferenceClickListener(new Preference.OnPreferenceClickListener() {
+					@Override
+					public boolean onPreferenceClick(Preference preference) {
+						DownloadService downloadService = DownloadService.getInstance();
+						if (downloadService != null) {
+							downloadService.post(new Runnable() {
+								@Override
+								public void run() {
+									DownloadService.getInstance().checkDownloads();
+								}
+							});
+							Util.toast(context, "Manual sync triggered");
+						} else {
+							Util.toast(context, "DownloadService is not running");
+						}
+						return true;
+					}
+				});
+			}
 		}
 
 		if(serversCategory != null) {
@@ -413,16 +449,16 @@ public class SettingsFragment extends PreferenceCompatFragment implements Shared
 		SharedPreferences prefs = Util.getPreferences(context);
 		prefs.registerOnSharedPreferenceChangeListener(this);
 
-        if (actionBarColor != null && actionBarColorNowPlaying != null) {
-            boolean isActionBarColored = prefs.getBoolean(Constants.PREFERENCES_KEY_COLOR_ACTION_BAR, true);
-            actionBarColor.setEnabled(isActionBarColored);
-            actionBarColorNowPlaying.setEnabled(isActionBarColored);
+		if (actionBarColor != null && actionBarColorNowPlaying != null) {
+			boolean isActionBarColored = prefs.getBoolean(Constants.PREFERENCES_KEY_COLOR_ACTION_BAR, true);
+			actionBarColor.setEnabled(isActionBarColored);
+			actionBarColorNowPlaying.setEnabled(isActionBarColored);
 
-            int actionBarColorInt = prefs.getInt(Constants.PREFERENCES_KEY_ACTION_BAR_COLOR, -1);
-            int actionBarColorNowPlayingInt = prefs.getInt(Constants.PREFERENCES_KEY_ACTION_BAR_NOW_PLAYING_COLOR, -1);
-            setColorIcon(actionBarColor, actionBarColorInt);
-            setColorIcon(actionBarColorNowPlaying, actionBarColorNowPlayingInt);
-        }
+			int actionBarColorInt = prefs.getInt(Constants.PREFERENCES_KEY_ACTION_BAR_COLOR, -1);
+			int actionBarColorNowPlayingInt = prefs.getInt(Constants.PREFERENCES_KEY_ACTION_BAR_NOW_PLAYING_COLOR, -1);
+			setColorIcon(actionBarColor, actionBarColorInt);
+			setColorIcon(actionBarColorNowPlaying, actionBarColorNowPlayingInt);
+		}
 
 		update();
 	}
@@ -521,23 +557,23 @@ public class SettingsFragment extends PreferenceCompatFragment implements Shared
 		}
 	}
 
-    private void setColorIcon(Preference preference, int color) {
-        if (color == -1) {
-            preference.setIcon(null);
-        } else {
-            int sizeDp = 24;
-            float scale = getResources().getDisplayMetrics().density;
-            int sizePx = (int) (sizeDp * scale + 0.5f);
+	private void setColorIcon(Preference preference, int color) {
+		if (color == -1) {
+			preference.setIcon(null);
+		} else {
+			int sizeDp = 24;
+			float scale = getResources().getDisplayMetrics().density;
+			int sizePx = (int) (sizeDp * scale + 0.5f);
 
-            GradientDrawable drawable = new GradientDrawable();
-            drawable.setShape(GradientDrawable.RECTANGLE);
-            drawable.setColor(color);
-            drawable.setCornerRadius(6f);
-            drawable.setSize(sizePx, sizePx);
-            drawable.setStroke(2, Color.DKGRAY);
-            preference.setIcon(drawable);
-        }
-    }
+			GradientDrawable drawable = new GradientDrawable();
+			drawable.setShape(GradientDrawable.RECTANGLE);
+			drawable.setColor(color);
+			drawable.setCornerRadius(6f);
+			drawable.setSize(sizePx, sizePx);
+			drawable.setStroke(2, Color.DKGRAY);
+			preference.setIcon(drawable);
+		}
+	}
 
 	private PreferenceScreen addServer(final int instance) {
 		final PreferenceScreen screen = this.getPreferenceManager().createPreferenceScreen(context);

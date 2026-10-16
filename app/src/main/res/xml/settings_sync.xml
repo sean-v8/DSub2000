@@ -30,6 +30,11 @@
 			android:summary="@string/settings.sync_notification_summary"
 			android:key="syncNotification"
 			android:defaultValue="true"/>
+
+        <Preference
+            android:key="manual_sync_trigger"
+            android:title="Sync Now"
+            android:summary="Manually trigger background sync queues immediately" />
 	</PreferenceCategory>
 
 	<PreferenceCategory
