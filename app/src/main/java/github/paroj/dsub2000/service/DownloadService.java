@@ -66,6 +66,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
@@ -620,6 +621,33 @@ public class DownloadService extends MediaLibraryService {
 
 		synchronized (this) {
 			backgroundDownloadList.addAll(toAdd);
+
+			// Hierarchical sort: Artist -> Album -> Track Number
+			Collections.sort(backgroundDownloadList, new Comparator<DownloadFile>() {
+				@Override
+				public int compare(DownloadFile f1, DownloadFile f2) {
+					MusicDirectory.Entry s1 = f1.getSong();
+					MusicDirectory.Entry s2 = f2.getSong();
+
+					// 1. Compare Artists
+					String artist1 = s1.getArtist() != null ? s1.getArtist() : "";
+					String artist2 = s2.getArtist() != null ? s2.getArtist() : "";
+					int artistCompare = artist1.compareToIgnoreCase(artist2);
+					if (artistCompare != 0) return artistCompare;
+
+					// 2. Compare Albums
+					String album1 = s1.getAlbum() != null ? s1.getAlbum() : "";
+					String album2 = s2.getAlbum() != null ? s2.getAlbum() : "";
+					int albumCompare = album1.compareToIgnoreCase(album2);
+					if (albumCompare != 0) return albumCompare;
+
+					// 3. Compare Track Numbers (keeps album tracklisting intact)
+					Integer track1 = s1.getTrack() != null ? s1.getTrack() : 0;
+					Integer track2 = s2.getTrack() != null ? s2.getTrack() : 0;
+					return Integer.compare(track1, track2);
+				}
+			});
+
 			revision++;
 			checkDownloads();
 			lifecycleSupport.serializeDownloadQueue();
