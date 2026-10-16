@@ -2323,22 +2323,11 @@ public class DownloadService extends MediaLibraryService {
 			}
 		}
 
-		boolean hasActiveDownloads = !backgroundDownloadList.isEmpty() || !downloadList.isEmpty();
+		boolean hasActiveDownloads = currentDownloading != null;
 		if (hasActiveDownloads) {
 			int totalRemaining = backgroundDownloadList.size() + downloadList.size();
-
-			// Fallback to the next pending item if currentDownloading is temporarily null
-			DownloadFile displayDownload = currentDownloading;
-			if (displayDownload == null) {
-				if (!downloadList.isEmpty()) {
-					displayDownload = downloadList.get(0);
-				} else if (!backgroundDownloadList.isEmpty()) {
-					displayDownload = backgroundDownloadList.get(0);
-				}
-			}
-
-			String currentTitle = (displayDownload != null && displayDownload.getSong() != null)
-					? displayDownload.getSong().getTitle()
+			String currentTitle = (currentDownloading.getSong() != null)
+					? currentDownloading.getSong().getTitle()
 					: "Initializing...";
 
 			Log.i(TAG, "Sync Progress: Downloading \"" + currentTitle + "\" | Remaining items: " + totalRemaining);
@@ -2346,12 +2335,12 @@ public class DownloadService extends MediaLibraryService {
 			// Throttle UI notification updates to once every 3 seconds to bypass Android 15 throttling/cooldown
 			long currentTime = System.currentTimeMillis();
 			if (currentTime - lastNotificationTime > 3000L || !downloadOngoing) {
-				Notifications.showDownloadingNotification(this, this, handler, displayDownload, totalRemaining);
+				Notifications.showDownloadingNotification(this, this, handler, currentDownloading, totalRemaining);
 				lastNotificationTime = currentTime;
 			}
 
 			downloadOngoing = true;
-		} else if (!hasActiveDownloads && downloadOngoing) {
+		} else if (downloadOngoing) {
 			Notifications.hideDownloadingNotification(this, this, handler);
 			downloadOngoing = false;
 		}
