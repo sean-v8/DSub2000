@@ -358,7 +358,13 @@ public class SettingsFragment extends PreferenceCompatFragment implements Shared
 
 					DownloadService downloadService = DownloadService.getInstance();
 					if (syncEnabled) {
-						// Immediately trigger checkDownloads if sync is turned on
+						// Request immediate manual and expedited sync via Android ContentResolver
+						Bundle extras = new Bundle();
+						extras.putBoolean(ContentResolver.SYNC_EXTRAS_MANUAL, true);
+						extras.putBoolean(ContentResolver.SYNC_EXTRAS_EXPEDITED, true);
+						ContentResolver.requestSync(account, Constants.SYNC_ACCOUNT_PLAYLIST_AUTHORITY, extras);
+						ContentResolver.requestSync(account, Constants.SYNC_ACCOUNT_PODCAST_AUTHORITY, extras);
+
 						if (downloadService != null) {
 							downloadService.post(new Runnable() {
 								@Override
@@ -402,12 +408,20 @@ public class SettingsFragment extends PreferenceCompatFragment implements Shared
 				manualSyncPref.setOnPreferenceClickListener(new Preference.OnPreferenceClickListener() {
 					@Override
 					public boolean onPreferenceClick(Preference preference) {
+						// Request manual expedited sync pass via ContentResolver
+						Account account = new Account(Constants.SYNC_ACCOUNT_NAME, Constants.SYNC_ACCOUNT_TYPE);
+						Bundle extras = new Bundle();
+						extras.putBoolean(ContentResolver.SYNC_EXTRAS_MANUAL, true);
+						extras.putBoolean(ContentResolver.SYNC_EXTRAS_EXPEDITED, true);
+						ContentResolver.requestSync(account, Constants.SYNC_ACCOUNT_PLAYLIST_AUTHORITY, extras);
+						ContentResolver.requestSync(account, Constants.SYNC_ACCOUNT_PODCAST_AUTHORITY, extras);
+
 						DownloadService downloadService = DownloadService.getInstance();
 						if (downloadService != null) {
 							downloadService.post(new Runnable() {
 								@Override
 								public void run() {
-									DownloadService.getInstance().checkDownloads();
+									downloadService.checkDownloads();
 								}
 							});
 							Util.toast(context, "Manual sync triggered");
