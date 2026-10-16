@@ -193,6 +193,8 @@ public class DownloadService extends MediaLibraryService {
 	private AudioNoisyReceiver audioNoisyReceiver = null;
 
 	private MediaRouteManager mediaRouter;
+
+	private long lastNotificationTime = 0;
 	
 	/**
 	 * Reference to precreated BASTP Object
@@ -2318,10 +2320,25 @@ public class DownloadService extends MediaLibraryService {
 			}
 		}
 
-		if(!backgroundDownloadList.isEmpty()) {
-			Notifications.showDownloadingNotification(this, this, handler, currentDownloading, backgroundDownloadList.size());
+		// Inside your checkDownloads() notification block:
+		boolean hasActiveDownloads = !backgroundDownloadList.isEmpty() || !downloadList.isEmpty();
+		if (hasActiveDownloads) {
+			int totalRemaining = backgroundDownloadList.size() + downloadList.size();
+			String currentTitle = (currentDownloading != null && currentDownloading.getSong() != null)
+					? currentDownloading.getSong().getTitle()
+					: "Unknown";
+
+			Log.i(TAG, "Sync Progress: Downloading \"" + currentTitle + "\" | Remaining items: " + totalRemaining);
+
+			// Throttle UI notification updates to once every 3 seconds to bypass Android 15 throttling/cooldown
+			long currentTime = System.currentTimeMillis();
+			if (currentTime - lastNotificationTime > 3000L || !downloadOngoing) {
+				Notifications.showDownloadingNotification(this, this, handler, currentDownloading, totalRemaining);
+				lastNotificationTime = currentTime;
+			}
+
 			downloadOngoing = true;
-		} else if(backgroundDownloadList.isEmpty() && downloadOngoing) {
+		} else if (!hasActiveDownloads && downloadOngoing) {
 			Notifications.hideDownloadingNotification(this, this, handler);
 			downloadOngoing = false;
 		}
