@@ -18,6 +18,8 @@
  */
 package github.paroj.dsub2000.util;
 
+import github.paroj.dsub2000.archive.ArchiveSource;
+
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
@@ -153,6 +155,11 @@ public class FileUtil {
     }
 
     private static File buildSongFile(Context context, MusicDirectory.Entry song, String stage, File albumDirectory, Predicate<File> exists) {
+        if (ArchiveSource.isArchive(song.getId())) {
+            String name = Util.md5Hex(song.getId())
+                    + (stage == null ? "" : "." + stage) + "." + song.getSuffix();
+            return new File(albumDirectory, name);
+        }
         Integer trackNumber = song.getTrack();
         String title = fileSystemSafe(song.getTitle());
         String extension = getSongFileNameExtension(context, song);
@@ -503,6 +510,16 @@ public class FileUtil {
     }
 
     private static File getAlbumDirectory(Context context, MusicDirectory.Entry entry, File musicDirectory) {
+        if (ArchiveSource.isArchive(entry.getId())) {
+            String identifier = ArchiveSource.identifier(entry.getId());
+            String path = entry.getPath();
+            String proposed = path == null ? null : entry.isDirectory() ? path : new File(path).getParent();
+            if (!github.paroj.dsub2000.archive.ArchivePaths.validFolder(proposed, identifier)) {
+                proposed = "Live Music Archive/" + identifier;
+            }
+            return new File(musicDirectory,
+                    github.paroj.dsub2000.archive.ArchiveLibrary.get(context).folder(identifier, proposed));
+        }
         File dir = null;
         if (entry.getPath() != null) {
             File f = new File(fileSystemSafeDir(entry.getPath()));

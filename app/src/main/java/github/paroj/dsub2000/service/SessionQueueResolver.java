@@ -1,5 +1,11 @@
 package github.paroj.dsub2000.service;
 
+import github.paroj.dsub2000.archive.ArchiveCatalog;
+
+import github.paroj.dsub2000.archive.ArchiveClient;
+
+import github.paroj.dsub2000.archive.ArchiveSource;
+
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.util.Log;
@@ -125,12 +131,28 @@ public final class SessionQueueResolver {
         } else if (extras.getSerializable(Constants.INTENT_EXTRA_ENTRY) instanceof Entry) {
             entry = (Entry) extras.getSerializable(Constants.INTENT_EXTRA_ENTRY);
         }
+        if (entry == null && ArchiveSource.isArchive(request.mediaId)) {
+            List<Entry> entries = archiveEntries(request.mediaId, null, false);
+            Entry selected = null;
+            for (Entry candidate : entries) if (candidate.getId().equals(request.mediaId)) selected = candidate;
+            if (selected == null) throw new IllegalArgumentException("Archive track is no longer available");
+            return queue(entries, shuffle, append, selected, false);
+        }
         String playlistId = extras.getString(Constants.INTENT_EXTRA_NAME_PLAYLIST_ID);
         if (playlistId != null) {
             return queue(music.getPlaylist(false, playlistId, "", service, null).getSongs(),
                     shuffle, append, null, false);
         }
         String directoryId = extras.getString(Constants.INTENT_EXTRA_NAME_ID);
+        if(directoryId!=null && directoryId.startsWith("archive-local:")) {
+            return queue(archiveEntries(ArchiveSource.itemId(directoryId.substring("archive-local:".length())),null,true),shuffle,append,null,false);
+        }
+        if (directoryId != null && ArchiveSource.isArchive(directoryId)) {
+            return queue(archiveEntries(directoryId, null, false), shuffle, append, null, false);
+        }
+        if (entry != null && ArchiveSource.isArchive(entry.getId())) {
+            return queue(archiveEntries(entry.getId(), entry, extras.getBoolean("archiveLocalOnly",false)), shuffle, append, entry, false);
+        }
         if (directoryId != null) {
             return queue(directory(music, directoryId).getSongs(), shuffle, append, null, true);
         }
@@ -151,6 +173,17 @@ public final class SessionQueueResolver {
             }
         }
         throw new IllegalArgumentException("Unknown media ID: " + request.mediaId);
+    }
+
+    private List<Entry> archiveEntries(String id, Entry selected, boolean localOnly) throws Exception {
+        ArchiveClient client = new ArchiveClient(service);
+        boolean flac = id.indexOf('/') >= 0 ? ArchiveSource.filename(id).toLowerCase(java.util.Locale.US).endsWith(".flac")
+                : service.getSharedPreferences("archive", android.content.Context.MODE_PRIVATE).getBoolean("flac", false);
+        ArchiveCatalog.Recording recording = client.recording(ArchiveSource.identifier(id),
+                flac ? ArchiveCatalog.Format.FLAC : ArchiveCatalog.Format.MP3, false, localOnly);
+        List<Entry> entries = client.entries(recording);
+        if (selected != null && !entries.contains(selected)) return Collections.singletonList(selected);
+        return entries;
     }
 
     private MusicDirectory directory(MusicService music, String id) throws Exception {

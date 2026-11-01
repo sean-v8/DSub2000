@@ -18,6 +18,8 @@
  */
 package github.paroj.dsub2000.service;
 
+import github.paroj.dsub2000.archive.ArchiveSource;
+
 import java.io.File;
 import java.io.IOException;
 import java.net.HttpURLConnection;
@@ -758,6 +760,7 @@ public class CachedMusicService implements MusicService {
 
 	@Override
     public Bitmap getCoverArt(Context context, Entry entry, int size, ProgressListener progressListener, SilentBackgroundTask task) throws Exception {
+		if(ArchiveSource.isArchive(entry.getId()) && size <= 0) size = 512;
 		Bitmap bitmap = FileUtil.getAlbumArtBitmap(context, entry, size);
 		if (bitmap != null) {
 			return bitmap;

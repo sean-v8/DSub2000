@@ -14,6 +14,8 @@
 */
 package github.paroj.dsub2000.fragments;
 
+import github.paroj.dsub2000.archive.ArchiveSource;
+
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
@@ -629,6 +631,14 @@ public class NowPlayingFragment extends SubsonicFragment implements OnGestureLis
 			menu.findItem(R.id.menu_show_artist).setVisible(false);
 		}
 
+		if(ArchiveSource.isArchive(downloadFile.getSong().getId())) {
+			menu.setGroupVisible(R.id.hide_star, false);
+			menu.setGroupVisible(R.id.hide_share, false);
+			menu.setGroupVisible(R.id.hide_rating, false);
+			menu.setGroupVisible(R.id.server_1_8, false);
+			menu.removeItem(R.id.menu_lyrics);
+			menu.removeItem(R.id.menu_show_artist);
+		}
 		MenuUtil.hideMenuItems(context, menu, updateView);
 	}
 
@@ -646,6 +656,10 @@ public class NowPlayingFragment extends SubsonicFragment implements OnGestureLis
 		switch (menuItemId) {
 			case R.id.menu_show_album: case R.id.menu_show_artist:
 				Entry entry = song.getSong();
+				if(ArchiveSource.isArchive(entry.getId())) {
+					replaceFragment(ArchiveFragment.recording(entry.getId()), true);
+					return true;
+				}
 
 				Intent intent = new Intent(context, SubsonicFragmentActivity.class);
 				intent.putExtra(Constants.INTENT_EXTRA_VIEW_ALBUM, true);
@@ -953,7 +967,9 @@ public class NowPlayingFragment extends SubsonicFragment implements OnGestureLis
 			return;
 		}
 
-		if(Util.isOffline(context)) {
+		boolean archive = currentPlaying != null && ArchiveSource.isArchive(currentPlaying.getSong().getId());
+		starButton.setVisibility(!archive && Util.getPreferences(context).getBoolean(Constants.PREFERENCES_KEY_MENU_STAR, true) ? View.VISIBLE : View.GONE);
+		if(Util.isOffline(context) || archive) {
 			bookmarkButton.setVisibility(View.GONE);
 			rateBadButton.setVisibility(View.GONE);
             addToPlaylist.setVisibility(View.GONE);

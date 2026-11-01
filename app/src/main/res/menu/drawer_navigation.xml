@@ -30,6 +30,10 @@
 			android:icon="@drawable/ic_menu_video"
 			android:title="@string/main.videos"/>
 		<item
+			android:id="@+id/drawer_archive"
+			android:icon="?attr/drawerLibrary"
+			android:title="@string/archive_title"/>
+		<item
 			android:id="@+id/drawer_shares"
 			android:icon="?attr/drawerShares"
 			android:title="@string/button_bar.shares"/>

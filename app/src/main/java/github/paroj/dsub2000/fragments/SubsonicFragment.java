@@ -18,6 +18,8 @@
  */
 package github.paroj.dsub2000.fragments;
 
+import github.paroj.dsub2000.archive.ArchiveSource;
+
 import android.app.Activity;
 import android.app.SearchManager;
 import android.app.SearchableInfo;
@@ -1595,6 +1597,10 @@ public class SubsonicFragment extends Fragment implements SwipeRefreshLayout.OnR
 	}
 
 	public void showAlbumArtist(Entry entry) {
+		if(ArchiveSource.isArchive(entry.getId())) {
+			replaceFragment(ArchiveFragment.recording(entry.getId()), true);
+			return;
+		}
 		SubsonicFragment fragment = new SelectDirectoryFragment();
 		Bundle args = new Bundle();
 		if(Util.isTagBrowsing(context)) {
@@ -1609,6 +1615,10 @@ public class SubsonicFragment extends Fragment implements SwipeRefreshLayout.OnR
 		replaceFragment(fragment, true);
 	}
 	public void showArtist(Entry entry) {
+		if(ArchiveSource.isArchive(entry.getId())) {
+			replaceFragment(ArchiveFragment.recording(entry.getId()), true);
+			return;
+		}
 		SubsonicFragment fragment = new SelectDirectoryFragment();
 		Bundle args = new Bundle();
 		if(Util.isTagBrowsing(context)) {
@@ -1628,6 +1638,10 @@ public class SubsonicFragment extends Fragment implements SwipeRefreshLayout.OnR
 	}
 
 	public void showAlbum(Entry entry) {
+		if(ArchiveSource.isArchive(entry.getId())) {
+			replaceFragment(ArchiveFragment.recording(entry.getId()), true);
+			return;
+		}
 		SubsonicFragment fragment = new SelectDirectoryFragment();
 		Bundle args = new Bundle();
 		if(Util.isTagBrowsing(context)) {

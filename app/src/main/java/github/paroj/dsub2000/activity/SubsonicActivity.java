@@ -418,6 +418,9 @@ public class SubsonicActivity extends AppCompatActivity implements OnItemSelecte
 						case R.id.drawer_bookmarks:
 							drawerItemSelected("Bookmark");
 							return true;
+						case R.id.drawer_archive:
+							drawerItemSelected("Archive");
+							return true;
 						case R.id.drawer_internet_radio_stations:
 							drawerItemSelected("Internet Radio");
 							return true;
@@ -1471,6 +1474,8 @@ public class SubsonicActivity extends AppCompatActivity implements OnItemSelecte
 				return R.id.drawer_podcasts;
 			case "Bookmark":
 				return R.id.drawer_bookmarks;
+			case "Archive":
+				return R.id.drawer_archive;
 			case "Internet Radio":
 				return R.id.drawer_internet_radio_stations;
 			case "Video":

@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	android:layout_width="match_parent"
+	android:layout_height="match_parent"
+	android:orientation="vertical">
+	<TextView
+		android:id="@+id/archive_status"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:padding="16dp"
+		android:textAppearance="?android:attr/textAppearanceSmall"
+		android:textIsSelectable="true" />
+	<LinearLayout
+		android:id="@+id/archive_actions"
+		style="?android:attr/buttonBarStyle"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:orientation="horizontal"
+		android:visibility="gone">
+		<Button style="?android:attr/buttonBarButtonStyle" android:id="@+id/archive_play"
+			android:layout_width="0dp" android:layout_weight="1"
+			android:layout_height="wrap_content" android:text="@string/archive_play_all" />
+		<Button style="?android:attr/buttonBarButtonStyle" android:id="@+id/archive_enqueue"
+			android:layout_width="0dp" android:layout_weight="1"
+			android:layout_height="wrap_content" android:text="@string/archive_enqueue" />
+		<Button style="?android:attr/buttonBarButtonStyle" android:id="@+id/archive_details"
+			android:layout_width="0dp" android:layout_weight="1"
+			android:layout_height="wrap_content" android:text="@string/archive_details" />
+	</LinearLayout>
+	<androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+		android:id="@+id/refresh_layout"
+		android:layout_width="match_parent"
+		android:layout_height="0dp"
+		android:layout_weight="1">
+		<ListView android:id="@+id/archive_list"
+			android:layout_width="match_parent"
+			android:layout_height="match_parent" />
+	</androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+	<LinearLayout android:id="@+id/archive_pages"
+		style="?android:attr/buttonBarStyle"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:visibility="gone"
+		android:orientation="horizontal">
+		<Button style="?android:attr/buttonBarButtonStyle" android:id="@+id/archive_previous"
+			android:layout_width="0dp" android:layout_weight="1"
+			android:layout_height="wrap_content" android:text="@string/archive_previous" />
+		<Button style="?android:attr/buttonBarButtonStyle" android:id="@+id/archive_next"
+			android:layout_width="0dp" android:layout_weight="1"
+			android:layout_height="wrap_content" android:text="@string/archive_next" />
+	</LinearLayout>
+</LinearLayout>

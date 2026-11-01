@@ -18,6 +18,12 @@
  */
 package github.paroj.dsub2000.service;
 
+import github.paroj.dsub2000.archive.ArchiveMedia;
+
+import github.paroj.dsub2000.archive.ArchiveHttp;
+
+import github.paroj.dsub2000.archive.ArchiveSource;
+
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -1044,6 +1050,7 @@ public class RESTMusicService implements MusicService {
 
 	@Override
 	public String getCoverArtUrl(Context context, MusicDirectory.Entry entry) throws Exception {
+		if(ArchiveSource.isArchive(entry.getId())) return ArchiveSource.artworkUrl(entry.getId());
 		StringBuilder builder = new StringBuilder(getRestUrl(context, "getCoverArt"));
 		builder.append("&id=").append(entry.getCoverArt());
 		String url = builder.toString();
@@ -1054,6 +1061,9 @@ public class RESTMusicService implements MusicService {
 
     @Override
     public Bitmap getCoverArt(Context context, MusicDirectory.Entry entry, int size, ProgressListener progressListener, SilentBackgroundTask task) throws Exception {
+		if(ArchiveSource.isArchive(entry.getId())) {
+			return ArchiveMedia.artwork(context, entry, size);
+		}
         // Synchronize on the entry so that we don't download concurrently for the same song.
         synchronized (entry) {
 			String url = getRestUrl(context, "getCoverArt");
@@ -1079,6 +1089,7 @@ public class RESTMusicService implements MusicService {
 
     @Override
     public HttpURLConnection getDownloadInputStream(Context context, MusicDirectory.Entry song, long offset, int maxBitrate, SilentBackgroundTask task) throws Exception {
+		if(ArchiveSource.isArchive(song.getId())) return ArchiveHttp.open(ArchiveSource.downloadUrl(song.getId()), offset);
         String url = getRestUrl(context, "stream");
 		List<String> parameterNames = new ArrayList<String>();
 		parameterNames.add("id");
@@ -1139,6 +1150,7 @@ public class RESTMusicService implements MusicService {
 
 	@Override
 	public String getMusicUrl(Context context, MusicDirectory.Entry song, int maxBitrate) throws Exception {
+		if(ArchiveSource.isArchive(song.getId())) return ArchiveSource.downloadUrl(song.getId());
 		StringBuilder builder = new StringBuilder(getRestUrl(context, "stream"));
 		builder.append("&id=").append(song.getId());
 
@@ -1822,6 +1834,10 @@ public class RESTMusicService implements MusicService {
 
 	@Override
 	public void savePlayQueue(List<MusicDirectory.Entry> songs, MusicDirectory.Entry currentPlaying, int position, Context context, ProgressListener progressListener) throws Exception {
+		// A mixed-source queue is persisted locally; Subsonic cannot represent it.
+		for(MusicDirectory.Entry song : songs) {
+			if(ArchiveSource.isArchive(song.getId())) return;
+		}
 		List<String> parameterNames = new LinkedList<String>();
 		List<Object> parameterValues = new LinkedList<Object>();
 
@@ -2121,6 +2137,17 @@ public class RESTMusicService implements MusicService {
 	}
 
 	private HttpURLConnection getConnectionDirect(Context context, String url, List<String> parameterNames, List<Object> parameterValues, Map<String, String> headers, int minNetworkTimeout) throws Exception {
+		// Never send external source identities to an authenticated Subsonic server.
+		if(parameterValues != null && parameterNames != null) {
+			for(int i = 0; i < parameterValues.size(); i++) {
+				String name = parameterNames.get(i);
+				boolean identity = name.equals("id") || name.equals("current")
+						|| name.endsWith("Id") || name.equals("songIdToAdd");
+				if(identity && ArchiveSource.isArchive(String.valueOf(parameterValues.get(i)))) {
+					throw new IOException(context.getString(R.string.archive_source_only));
+				}
+			}
+		}
 		// Add params to query
 		if (parameterNames != null) {
 			StringBuilder builder = new StringBuilder(url);

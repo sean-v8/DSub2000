@@ -18,6 +18,8 @@
  */
 package github.paroj.dsub2000.service;
 
+import github.paroj.dsub2000.archive.ArchiveSource;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -73,7 +75,7 @@ public class DownloadFile implements BufferFile {
     DownloadFile(Context context, MusicDirectory.Entry song, boolean save, FileUtil.SongFiles files) {
         this.context = context;
         this.song = song;
-        this.save = save;
+        this.save = save && !ArchiveSource.isStreamOnly(song.getId());
         saveFile = files.save();
         partialFile = files.partial();
         completeFile = files.complete();
@@ -104,6 +106,8 @@ public class DownloadFile implements BufferFile {
         return song.getBitRate() == null ? 160 : song.getBitRate();
     }
 	private int getActualBitrate() {
+		// Archive files are immutable format choices, never server-transcoded.
+		if(ArchiveSource.isArchive(song.getId())) return song.getBitRate() == null ? 0 : song.getBitRate();
 		int br = song.isVideo() ? Util.getMaxVideoBitrate(context) : Util.getMaxBitrate(context);
 		if(br == 0 && song.getTranscodedSuffix() != null && "mp3".equals(song.getTranscodedSuffix().toLowerCase())) {
 			if(song.getBitRate() != null) {
@@ -140,6 +144,7 @@ public class DownloadFile implements BufferFile {
 
 	@Override
 	public long getEstimatedSize() {
+		if(ArchiveSource.isArchive(song.getId()) && song.getSize() != null && song.getSize() > 0) return song.getSize();
 		if(contentLength != null) {
 			return contentLength;
 		}
@@ -292,6 +297,7 @@ public class DownloadFile implements BufferFile {
         Util.delete(partialFile);
         Util.delete(completeFile);
         Util.delete(saveFile);
+		updateArchiveLibrary();
 		FileUtil.deleteEmptyDir(parent);
     }
 
@@ -365,7 +371,14 @@ public class DownloadFile implements BufferFile {
 			}
 		}
 	}
+	private void updateArchiveLibrary() {
+		if(ArchiveSource.isArchive(song.getId())) {
+			try { github.paroj.dsub2000.archive.ArchiveLibrary.get(context).completed(this); }
+			catch(Exception error) { Log.e(TAG, "Could not update Archive download catalogue", error); }
+		}
+	}
 	private void saveToStore() {
+		updateArchiveLibrary();
 		if(!Util.getPreferences(context).getBoolean(Constants.PREFERENCES_KEY_HIDE_MEDIA, false)) {
 			try {
 				mediaStoreService.saveInMediaStore(this);
@@ -375,6 +388,7 @@ public class DownloadFile implements BufferFile {
 		}
 	}
 	private void renameInStore(File start, File end) {
+		updateArchiveLibrary();
 		try {
 			mediaStoreService.renameInMediaStore(start, end);
 		} catch(Exception e) {
@@ -479,10 +493,17 @@ public class DownloadFile implements BufferFile {
 				} catch(Exception e) {
 					compare = true;
 				}
+				if(ArchiveSource.isArchive(song.getId())) {
+					Long size = song.getSize();
+					if(size != null && size > 0 && partialFile.length() > size) Util.delete(partialFile);
+					compare = size == null || size <= 0 || partialFile.length() != size;
+				}
 				if(compare) {
 					// Attempt partial HTTP GET, appending to the file if it exists.
 					HttpURLConnection connection = musicService.getDownloadInputStream(context, song, partialFile.length(), bitRate, DownloadTask.this);
-					long contentLength = connection.getContentLength();
+					long contentLength = connection.getContentLengthLong();
+					if(ArchiveSource.isArchive(song.getId()) && contentLength > 0
+							&& connection.getResponseCode() == HttpURLConnection.HTTP_PARTIAL) contentLength += partialFile.length();
 					if(contentLength > 0) {
 						Log.i(TAG, "Content Length: " + contentLength);
 						DownloadFile.this.contentLength = contentLength;
@@ -506,6 +527,10 @@ public class DownloadFile implements BufferFile {
 						throw new Exception("Download of '" + song + "' failed.  File is 0 bytes long.");
 					}
 
+					if(ArchiveSource.isArchive(song.getId()) && song.getSize() != null
+							&& song.getSize() > 0 && partialFile.length() != song.getSize()) {
+						throw new IOException("Incomplete Archive.org download; will resume");
+					}
 					downloadAndSaveCoverArt(musicService);
 				}
 

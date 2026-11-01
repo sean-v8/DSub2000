@@ -9,6 +9,8 @@
  */
 package github.paroj.dsub2000.util.compat;
 
+import github.paroj.dsub2000.archive.ArchiveSource;
+
 import android.app.PendingIntent;
 import android.content.ComponentName;
 import android.content.Context;
@@ -178,7 +180,7 @@ public class RemoteControlClientLP {
     private void updateCustomLayout() {
         DownloadFile current = service.getCurrentPlaying();
         List<CommandButton> buttons = new ArrayList<>();
-        if (current != null) {
+        if (current != null && !ArchiveSource.isArchive(current.getSong().getId())) {
             Entry entry = current.getSong();
             buttons.add(button(THUMBS_DOWN, R.string.download_thumbs_down,
                     entry.getRating() == 1 ? R.drawable.ic_action_rating_bad_selected : R.drawable.ic_action_rating_bad));
