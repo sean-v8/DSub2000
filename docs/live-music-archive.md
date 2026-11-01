@@ -2,20 +2,12 @@
 
 ## Source baseline
 
-Repository: `sean-v8/DSub2000`, branch `edge`.
-GitHub commit: `bb656ad0fc2de8fd3ca51b3743f8aa41b04284bf`.
-Canonical baseline: the clean fork commit above. The supplied
-`DSub2000-edge-source_bb656ad0.zip` is retained as a separately identified input
-snapshot, not assumed byte-identical to that commit.
-
-The supplied ZIP differs from Git in `SettingsFragment.java`,
-`DownloadService.java`, and `settings_sync.xml`. Fresh clean-checkout updates
-preserve Git's existing settings and add only Archive-specific changes to
-DownloadService. For ZIP-based installations, a hash-checked variant retains
-its existing queue-sorting and notification changes instead of deleting them.
-The updater never writes the unrelated settings files.
-
-No remote push, release, or version change is included.
+Repository: `sean-v8/DSub2000`, branch `st/lma`.
+Baseline commit: `cdb6fe8c2a50b17dcd2c9e97f33a4fea6b728a44`.
+This update is based on the published implementation the user installed.
+The guarded updater accepts that commit and exact affected-file hashes;
+it preserves unrelated edits and private configuration. No remote push,
+release or version change is included.
 
 ## Using the browser
 
@@ -23,14 +15,17 @@ Open **Live Music Archive** in the navigation drawer. No Archive.org server,
 account, password, or API key is required. Existing Subsonic servers and their
 navigation remain available.
 
-The flow is **collection → year → date → recordings → tracks**. Multiple tapes
+The flow is **letter → collection → year → date → recordings → tracks**. Multiple tapes
 of the same date remain separate recordings.
 
-- Collections under `etree` are paged alphabetically, 100 results per page.
+- Collections under `etree` start with an instant A–Z landing page and a
+  **0–9 / Other** group. Each group is filtered on Archive's normalized
+  `titleSorter` field, with 100 results per page. The landing page needs no
+  network request. The shared session browser uses the same groups.
 - **Tapers Section** is also available directly. This is the Archive.org
   `taperssection` collection, unrelated to the Android app of a similar name.
 - **Find collection** searches collection titles/identifiers. Clear the search
-  to return to the full list.
+  to return to the alphabetic landing page.
 - **Open collection by identifier** accepts another Archive collection, such as
   `ClubdElf` or `taperssection`.
 - Open a collection and choose **Favorite collection**. **Favorite collections**
@@ -91,7 +86,7 @@ catalogue; externally removed files are reconciled when their recording opens.
 
 Download metadata lives in the app's database directory, not Android's cache.
 Browsing responses and date indexes live in the app's files directory, with a
-24-hour refresh age, a 64 MiB / 1,024-file storage bound and oldest-first pruning.
+15-minute browse refresh age (five minutes for recording file metadata), a 64 MiB / 1,024-file storage bound and oldest-first pruning.
 That pruning never deletes the download database or downloaded audio. The
 Downloaded recordings browser remains available when browse-history JSON is
 absent, expired, or removed. Clearing Android's disposable app cache does not
@@ -115,9 +110,10 @@ has separate limits:
 - Every displayed collection/date/recording/track page contains at most 100 rows.
 - Collection and recording listings fetch only lightweight search fields. No
   listing requests recording file metadata or artwork, regardless of size.
-- Up to 500 recordings: a date-only index is permitted, in batches of at most
-  500 identifiers/dates. The entire index must complete before it is saved.
-- Larger collections: request a count and earliest/latest dated bounds. Display
+- One bounded search requests up to 500 identifiers/dates plus the total count.
+  Small collections/years need only that request; a complete date index is saved.
+- Larger collections: discard the bounded sample and request earliest/latest
+  dated bounds plus the undated count. Display
   a bounded year range, then load dates only for the selected year. Some years
   in that range may have no recordings; the UI says so explicitly.
 - A selected year above 500 recordings uses a bounded calendar (365/366 days),
@@ -167,12 +163,35 @@ Auto host, a head unit and voice assistants require separate end-to-end device
 validation. Existing voice search continues to search the Subsonic library;
 Archive-specific natural-language voice search is not included.
 
+## Loading and failure recovery
+
+Metadata requests accept gzip, while audio keeps identity encoding so resume
+byte offsets remain correct. One socket timeout is retried automatically for
+metadata; HTTP 429 and permanent errors are not retried within that request.
+Recording file-list freshness expires after five minutes; the next open
+requests fresh metadata. The Refresh action bypasses freshness immediately. There is no scheduled scraper,
+external catalogue service or daily snapshot. Stale metadata remains available
+if a network fetch fails; the screen marks it as cached. A failed explicit
+Refresh is reported rather than silently returning stale data.
+
+The downloader reuses the validated primary storage location from item metadata
+to avoid an extra redirect. If it fails, the normal Archive download URL resolves
+the item's current location again. Untrusted storage locations are ignored;
+HTTPS, host validation, resume ranges and credential isolation remain enforced.
+
+Archive I/O failures now count toward a two-attempt limit. Exhaustion stops the
+buffering state and shows the failure; Play resets that Archive retry state.
+Other server downloads keep their existing retry limit. The player displays
+WiFi/roaming restrictions only when the current connection actually fails the
+policy, and WiFi transport detection also checks active network capabilities
+(for networks carrying a VPN). Existing user network restrictions remain in force.
+
 ## Implementation map
 
 - `archive/ArchiveSource.java`: stable IDs, validation and URL construction.
 - `archive/ArchiveCatalog.java`: metadata, format selection and track ordering.
 - `archive/ArchiveHttp.java`: independent Archive HTTP transport.
-- `archive/ArchiveClient.java`: paging, cursor date indexes, metadata cache and
+- `archive/ArchiveClient.java`: paging, bounded date indexes, metadata cache and
   conversion to existing song entries.
 - `archive/ArchiveMedia.java`: artwork retrieval/cache.
 - `archive/ArchivePaths.java`: short, sanitized event/artist folder components.

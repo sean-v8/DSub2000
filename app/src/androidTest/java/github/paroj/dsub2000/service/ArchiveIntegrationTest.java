@@ -120,15 +120,28 @@ public class ArchiveIntegrationTest {
 	@Test public void cacheFilesDifferBetweenTapesAndBetweenFormats() throws Exception {
 		ArchiveClient client = new ArchiveClient(context);
 		Entry entry = client.entries(client.recording(identifier, ArchiveCatalog.Format.MP3, false)).get(0);
-		File first = FileUtil.getSongFile(context, entry);
+		File first = FileUtil.getSongFiles(context, entry).save();
 		Entry other = Entry.fromByteArray(entry.toByteArray());
 		other.setId(ArchiveSource.trackId(identifier + "-other", "t01.mp3"));
-		assertNotEquals(first, FileUtil.getSongFile(context, other));
+		assertNotEquals(first, FileUtil.getSongFiles(context, other).save());
 		other.setId(ArchiveSource.trackId(identifier, "t01.flac"));
 		other.setSuffix("flac");
-		assertNotEquals(first, FileUtil.getSongFile(context, other));
+		assertNotEquals(first, FileUtil.getSongFiles(context, other).save());
 		assertEquals(identifier, first.getParentFile().getName());
 		assertTrue(first.getAbsolutePath().contains("Live Music Archive" + File.separator + "Band; Guest" + File.separator + "2026-10-03" + File.separator));
+	}
+
+	@Test public void batchCachePathsMatchIndividualArchivePaths() throws Exception {
+		ArchiveClient client = new ArchiveClient(context);
+		Entry entry = client.entries(client.recording(identifier, ArchiveCatalog.Format.MP3, false)).get(0);
+		FileUtil.SongFiles individual = FileUtil.getSongFiles(context, entry);
+		FileUtil.SongFiles batch = new FileUtil.SongFileBatch(context).get(entry);
+		assertEquals(individual, batch);
+		String base = github.paroj.dsub2000.util.Util.md5Hex(entry.getId());
+		assertEquals(base + ".mp3", batch.save().getName());
+		assertEquals(base + ".partial.mp3", batch.partial().getName());
+		assertEquals(base + ".complete.mp3", batch.complete().getName());
+		assertEquals(batch.save(), new DownloadFile(context, entry, true, batch).getSaveFile());
 	}
 
 	@Test public void streamOnlyRestrictionSurvivesQueueSerialization() throws Exception {
@@ -182,7 +195,7 @@ public class ArchiveIntegrationTest {
 		ArchiveClient client = new ArchiveClient(context);
 		Entry entry = client.entries(client.recording(identifier, ArchiveCatalog.Format.MP3, false)).get(0);
 		DownloadService service = service();
-		File audio = FileUtil.getSongFile(context, entry);
+		File audio = FileUtil.getSongFiles(context, entry).save();
 		assertTrue(audio.getParentFile().isDirectory() || audio.getParentFile().mkdirs());
 		try(java.io.InputStream input = InstrumentationRegistry.getInstrumentation().getContext().getAssets().open("archive-tone.mp3");
 				FileOutputStream output = new FileOutputStream(audio)) {
@@ -251,5 +264,26 @@ public class ArchiveIntegrationTest {
 			assertTrue(status.getText().toString().contains(context.getString(R.string.archive_cached)));
 			assertTrue(activity.getActivity().findViewById(R.id.archive_play).isEnabled());
 		});
+	}
+
+	@Test public void alphabeticalLandingNeedsNoNetworkAndSessionMatches() throws Exception {
+		DownloadService service=service();
+		SessionLibrary library=new SessionLibrary(service);
+		try {
+			List<MediaItem> groups=library.children("ia-groups",0,100).get(10,TimeUnit.SECONDS);
+			assertEquals(27,groups.size());assertEquals("A",groups.get(0).mediaMetadata.title.toString());
+			assertEquals("Z",groups.get(25).mediaMetadata.title.toString());
+		} finally { library.release(); }
+		activity.launchActivity(new android.content.Intent(context,SubsonicFragmentActivity.class));
+		ArchiveFragment fragment=new ArchiveFragment();
+		InstrumentationRegistry.getInstrumentation().runOnMainSync(()->activity.getActivity().replaceFragment(fragment,fragment.getSupportTag(),false));
+		long deadline=System.currentTimeMillis()+10000;AtomicReference<Integer> count=new AtomicReference<>(0);
+		do {
+			InstrumentationRegistry.getInstrumentation().runOnMainSync(()->{
+				ListView list=activity.getActivity().findViewById(R.id.archive_list);count.set(list==null ? 0 : list.getCount());
+			});
+			if(count.get()==28)break;Thread.sleep(50);
+		} while(System.currentTimeMillis()<deadline);
+		assertEquals(28,count.get().intValue());
 	}
 }

@@ -1182,7 +1182,7 @@ public final class Util {
         boolean connected = networkInfo != null && networkInfo.isConnected();
 
 		if(streaming) {
-			boolean wifiConnected = connected && networkInfo.getType() == ConnectivityManager.TYPE_WIFI;
+			boolean wifiConnected = connected && isWifiConnected(context);
 			boolean wifiRequired = isWifiRequiredForDownload(context);
 
 			boolean isLocalNetwork = connected && !networkInfo.isRoaming();
@@ -1197,7 +1197,9 @@ public final class Util {
 		ConnectivityManager manager = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
 		NetworkInfo networkInfo = manager.getActiveNetworkInfo();
 		boolean connected = networkInfo != null && networkInfo.isConnected();
-		return connected && (networkInfo.getType() == ConnectivityManager.TYPE_WIFI);
+		android.net.NetworkCapabilities capabilities = manager.getNetworkCapabilities(manager.getActiveNetwork());
+		return connected && ((capabilities != null && capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI))
+				|| networkInfo.getType() == ConnectivityManager.TYPE_WIFI);
 	}
 	public static String getSSID(Context context) {
 		if (isWifiConnected(context)) {

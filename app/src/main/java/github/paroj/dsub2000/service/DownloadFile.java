@@ -55,8 +55,9 @@ public class DownloadFile implements BufferFile {
     private final MediaStoreService mediaStoreService;
     private DownloadTask downloadTask;
     private boolean save;
-	private boolean failedDownload = false;
-    private int failed = 0;
+	private volatile boolean failedDownload = false;
+	private volatile String archiveFailure;
+    private volatile int failed = 0;
     // Looking up the maximum bit rate asks the system for the active network, which is
     // too slow to repeat for every song while a large playlist is queued (issue #135).
     private static final int UNKNOWN_BITRATE = -1;
@@ -283,8 +284,18 @@ public class DownloadFile implements BufferFile {
         return failedDownload;
     }
     public boolean isFailedMax() {
-    	return failed > MAX_FAILURES;
+		return ArchiveSource.isArchive(song.getId()) ? failed >= 2 : failed > MAX_FAILURES;
     }
+
+	public String getArchiveFailure() { return archiveFailure; }
+
+	public void retryArchiveDownload() {
+		if(ArchiveSource.isArchive(song.getId()) && isFailedMax()) {
+			// Keep the failed flag until preDownload: the scheduler uses it to
+			// replace a failed currentDownloading instance when Play is retried.
+			failed=0; archiveFailure=null;
+		}
+	}
 
     public void delete() {
         cancelDownload();
@@ -546,11 +557,13 @@ public class DownloadFile implements BufferFile {
 				Util.delete(completeFile);
 				Util.delete(saveFile);
 				if(!isCancelled()) {
+					if(ArchiveSource.isArchive(song.getId())) archiveFailure=x.getMessage();
 					failed = MAX_FAILURES + 1;
 					failedDownload = true;
 					Log.w(TAG, "Failed to download '" + song + "'.", x);
 				}
 			} catch(IOException x) {
+				if(ArchiveSource.isArchive(song.getId()) && !isCancelled()) { failed++; archiveFailure=x.getMessage(); }
 				Util.delete(completeFile);
 				Util.delete(saveFile);
 				if(!isCancelled()) {
@@ -562,6 +575,7 @@ public class DownloadFile implements BufferFile {
                 Util.delete(saveFile);
                 if (!isCancelled()) {
                 	failed++;
+					if(ArchiveSource.isArchive(song.getId())) archiveFailure=x.getMessage();
                     failedDownload = true;
                     Log.w(TAG, "Failed to download '" + song + "'.", x);
                 }

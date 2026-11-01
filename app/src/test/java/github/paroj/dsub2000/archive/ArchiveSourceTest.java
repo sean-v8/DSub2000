@@ -35,4 +35,14 @@ public class ArchiveSourceTest {
 	@Test(expected = IllegalArgumentException.class) public void itemCannotBeUsedAsTrack() { ArchiveSource.downloadUrl("archive:show1"); }
 	@Test(expected = IllegalArgumentException.class) public void controlCharactersRejected() { ArchiveSource.trackId("show1", "a\nb\nc.mp3"); }
 	@Test public void queryLiteralsAreEscaped() { assertEquals("\"a\\\" OR collection:x\"", ArchiveSource.quoted("a\" OR collection:x")); }
+
+	@Test public void alphabeticalGroupsUseBoundedPrefixQueries() {
+		assertEquals("titleSorter:a*",ArchiveSource.collectionGroupQuery("A"));
+		assertEquals("titleSorter:z*",ArchiveSource.collectionGroupQuery("Z"));
+		assertTrue(ArchiveSource.collectionGroupQuery("#").contains("titleSorter:z*"));
+		assertTrue(ArchiveSource.collectionGroupQuery("#").startsWith("NOT ("));
+	}
+	@Test(expected=IllegalArgumentException.class) public void groupCannotEscapeSupportedRoots() {
+		ArchiveSource.collectionGroupQuery("A OR *:*");
+	}
 }

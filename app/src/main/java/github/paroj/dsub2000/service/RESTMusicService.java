@@ -1089,7 +1089,7 @@ public class RESTMusicService implements MusicService {
 
     @Override
     public HttpURLConnection getDownloadInputStream(Context context, MusicDirectory.Entry song, long offset, int maxBitrate, SilentBackgroundTask task) throws Exception {
-		if(ArchiveSource.isArchive(song.getId())) return ArchiveHttp.open(ArchiveSource.downloadUrl(song.getId()), offset);
+		if(ArchiveSource.isArchive(song.getId())) return ArchiveHttp.download(song.getId(), offset);
         String url = getRestUrl(context, "stream");
 		List<String> parameterNames = new ArrayList<String>();
 		parameterNames.add("id");

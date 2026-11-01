@@ -48,4 +48,6 @@
 	<string name="archive_downloaded">Downloaded recordings</string>
 	<string name="archive_lazy_year">Large collection · dates load when opened; some years may be empty</string>
 	<string name="archive_lazy_day">Large year · open to check recordings for this date</string>
+	<string name="archive_other_group">0–9 / Other</string>
+	<string name="archive_download_failed">Archive download failed: %1$s. Tap Play to retry.</string>
 </resources>

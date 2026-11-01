@@ -1924,6 +1924,7 @@ public class DownloadService extends MediaLibraryService {
 			if(Util.isAllowedToDownload(this)) {
 				reset();
 
+				currentPlaying.retryArchiveDownload();
 				bufferTask = new BufferTask(currentPlaying, position, start);
 				bufferTask.execute();
 			} else {
@@ -2230,7 +2231,7 @@ public class DownloadService extends MediaLibraryService {
 		}
 
 		// Need to download current playing and not casting?
-		if (currentPlaying != null && remoteState == LOCAL && currentPlaying != currentDownloading && !currentPlaying.isWorkDone()) {
+		if (currentPlaying != null && remoteState == LOCAL && currentPlaying != currentDownloading && !currentPlaying.isWorkDone() && !currentPlaying.isFailedMax()) {
 			// Cancel current download, if necessary.
 			if (currentDownloading != null) {
 				currentDownloading.cancelDownload();
@@ -2985,6 +2986,11 @@ public class DownloadService extends MediaLibraryService {
 			while (!bufferComplete()) {
 				Thread.sleep(1000L);
 				if (isCancelled() || downloadFile.isFailedMax()) {
+					if(!isCancelled() && ArchiveSource.isArchive(downloadFile.getSong().getId())) {
+						synchronized(DownloadService.this) {
+							if(currentPlaying==downloadFile) setPlayerState(STOPPED);
+						}
+					}
 					return null;
 				} else if(!downloadFile.isFailedMax() && !downloadFile.isDownloading()) {
 					checkDownloads();

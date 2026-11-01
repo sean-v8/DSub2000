@@ -57,6 +57,7 @@ public class ArchiveFragment extends SubsonicFragment {
 	private String date = "";
 	private String identifier = "";
 	private String query = "";
+	private String group = "";
 	private boolean favorites;
 	private String savedArtist = "";
 	private boolean savedOnly;
@@ -89,6 +90,7 @@ public class ArchiveFragment extends SubsonicFragment {
 			date = args.getString("date", "");
 			identifier = args.getString("identifier", "");
 			query = args.getString("query", "");
+			group = args.getString("group", "");
 			favorites = args.getBoolean("favorites", false);
 			savedArtist = args.getString("savedArtist", "");
 			savedOnly = args.getBoolean("savedOnly", false);
@@ -111,6 +113,7 @@ public class ArchiveFragment extends SubsonicFragment {
 		args.putString("date", date);
 		args.putString("identifier", identifier);
 		args.putString("query", query);
+		args.putString("group", group);
 		args.putBoolean("favorites", favorites);
 		args.putString("savedArtist", savedArtist);
 		args.putBoolean("savedOnly", savedOnly);
@@ -172,7 +175,7 @@ public class ArchiveFragment extends SubsonicFragment {
 		status.setText(R.string.archive_loading);
 		rootView.findViewById(R.id.archive_actions).setVisibility(View.GONE);
 		rootView.findViewById(R.id.archive_pages).setVisibility(View.GONE);
-		setTitle(level == COLLECTIONS ? getString(R.string.archive_title)
+		setTitle(level == COLLECTIONS ? getString(R.string.archive_title) + (group.isEmpty() ? "" : " · " + group)
 				: level == TRACKS ? identifier : collectionTitle + (level == DATES ? " · " + year : level == RECORDINGS ? " · " + date : ""));
 		if(level==SAVED_ARTISTS) setTitle(R.string.archive_downloaded);
 		else if(level==SAVED_YEARS || level==SAVED_RECORDINGS) setTitle(savedArtist + (level==SAVED_RECORDINGS ? " · " + year : ""));
@@ -193,12 +196,15 @@ public class ArchiveFragment extends SubsonicFragment {
 					for(String id : favoriteIds) result.add(new ArchiveCatalog.Row(id, favoriteNames.get(id), id, 0));
 					result.sort((a, b) -> a.title.compareToIgnoreCase(b.title));
 				} else if(level == COLLECTIONS) {
-					ArchiveClient.Page response = client.collections(query, page, refresh);
+					if(query.isEmpty() && group.isEmpty()) {
+						result = new ArrayList<>();
+						result.add(new ArchiveCatalog.Row("taperssection", "Tapers Section", "taperssection", 0));
+						for(char c='A'; c<='Z'; c++) result.add(new ArchiveCatalog.Row("group:"+c, Character.toString(c), "", 0));
+						result.add(new ArchiveCatalog.Row("group:#", getString(R.string.archive_other_group), "", 0));
+					} else {
+					ArchiveClient.Page response = client.collections(query, group, page, refresh);
 					result = response.rows;
 					count = response.total;
-					if(page == 1 && query.isEmpty()) {
-						result.removeIf(row -> row.id.equals("taperssection"));
-						result.add(0, new ArchiveCatalog.Row("taperssection", "Tapers Section", "taperssection", 0));
 					}
 				} else if(level == YEARS || level == DATES) {
 					ProgressListener progress = new ProgressListener() {
@@ -294,6 +300,11 @@ public class ArchiveFragment extends SubsonicFragment {
 		if(loading || position >= rows.size()) return;
 		ArchiveCatalog.Row row = rows.get(position);
 		if(level == TRACKS) { play(position + (page - 1) * ArchiveClient.PAGE_SIZE); return; }
+		if(level == COLLECTIONS && row.id.startsWith("group:")) {
+			ArchiveFragment fragment=new ArchiveFragment();Bundle args=arguments();
+			args.putString("group",row.id.substring(6));args.putInt("page",1);
+			fragment.setArguments(args);replaceFragment(fragment,false);return;
+		}
 		Bundle args = arguments();
 		args.putInt("page", 1);
 		args.putInt("level", level + 1);
@@ -412,7 +423,7 @@ public class ArchiveFragment extends SubsonicFragment {
 				Bundle args = new Bundle();
 				args.putInt("level", YEARS); args.putString("collection", value); args.putString("collectionTitle", value);
 				fragment.setArguments(args); replaceFragment(fragment, false);
-			} else { query = value; favorites = false; page = 1; refresh(false); }
+			} else { query = value; group = ""; favorites = false; page = 1; refresh(false); }
 			dialog.dismiss();
 		}));
 		dialog.show();

@@ -11,10 +11,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.TreeMap;
 
 import github.paroj.dsub2000.domain.MusicDirectory;
@@ -25,9 +23,8 @@ import github.paroj.dsub2000.util.Util;
 public final class ArchiveClient {
 	public static final int PAGE_SIZE = 100;
 	public static final int INDEX_LIMIT = 500;
-	private static final int INDEX_BATCH = 500;
 	private static final Object CACHE_LOCK = new Object();
-	private static final long CACHE_AGE = 24L * 60 * 60 * 1000;
+	private static final long CACHE_AGE = 15L * 60 * 1000;
 	private final Context context;
 	private boolean cached;
 	public interface JsonReader { JSONObject read(String url) throws Exception; }
@@ -56,7 +53,13 @@ public final class ArchiveClient {
 	}
 
 	public Page collections(String search, int page, boolean refresh) throws Exception {
+		return collections(search, "", page, refresh);
+	}
+
+	public Page collections(String search, String group, int page, boolean refresh) throws Exception {
 		String query = "(collection:etree AND mediatype:collection) OR identifier:taperssection";
+		String filter = ArchiveSource.collectionGroupQuery(group);
+		if(!filter.isEmpty()) query = "(" + query + ") AND (" + filter + ")";
 		if(!search.trim().isEmpty()) {
 			// Quoting prevents user input from escaping the supported roots.
 			query = "(" + query + ") AND (title:" + ArchiveSource.quoted(search.trim())
@@ -113,10 +116,8 @@ public final class ArchiveClient {
 		if(index.isFile() && !refresh && (offline() || fresh(index))) {
 			cached = true; return ArchiveCatalog.years(timelineValues(read(index)));
 		}
-		if(count(query, refresh) <= INDEX_LIMIT) {
-			try { return ArchiveCatalog.years(scanDates(collection, null, refresh, progress)); }
-			catch(IndexTooLarge changed) { /* Collection grew since its count query. */ }
-		}
+		try { return ArchiveCatalog.years(scanDates(collection, null, refresh, progress)); }
+		catch(IndexTooLarge large) { /* Use bounded year navigation. */ }
 		index.delete();
 		String dated = query + " AND date:[1800-01-01T00:00:00Z TO 2200-12-31T23:59:59Z]";
 		String earliest = bound(dated, "asc", refresh), latest = bound(dated, "desc", refresh);
@@ -147,10 +148,8 @@ public final class ArchiveClient {
 		if(index.isFile() && !refresh && (offline() || fresh(index))) {
 			cached=true; return ArchiveCatalog.dates(timelineValues(read(index)),year);
 		}
-		if(count(query,refresh)<=INDEX_LIMIT) {
-			try { return ArchiveCatalog.dates(scanDates(collection,year,refresh,progress),year); }
-			catch(IndexTooLarge changed) { /* Use a bounded calendar instead. */ }
-		}
+		try { return ArchiveCatalog.dates(scanDates(collection,year,refresh,progress),year); }
+		catch(IndexTooLarge large) { /* Use a bounded calendar instead. */ }
 		index.delete();
 		// No giant census: at most 366 lightweight days, then paged per-date search.
 		java.text.SimpleDateFormat format=new java.text.SimpleDateFormat("yyyy-MM-dd",java.util.Locale.US);
@@ -168,7 +167,6 @@ public final class ArchiveClient {
 	public Map<String, Integer> timeline(String collection, boolean refresh, ProgressListener progress) throws Exception {
 		File file=cacheFile("timeline-v1:" + collection);
 		if(file.isFile() && !refresh && (offline() || fresh(file))) { cached=true;return timelineValues(read(file)); }
-		if(count(collectionQuery(collection,null),refresh)>INDEX_LIMIT) throw new IndexTooLarge();
 		return scanDates(collection,null,refresh,progress);
 	}
 
@@ -180,23 +178,20 @@ public final class ArchiveClient {
 		File file=cacheFile(year==null ? "timeline-v1:"+collection : "timeline-v2:"+collection+":"+year);
 		if(file.isFile() && !refresh && (offline() || fresh(file))) { cached=true;return timelineValues(read(file)); }
 		if(offline()) throw new IOException("This date index has not been saved. Use Downloaded recordings for offline audio.");
-		Map<String,Integer> dates=new TreeMap<>();String cursor="";Set<String> seen=new HashSet<>();int loaded=0;
+		Map<String,Integer> dates=new TreeMap<>();
 		try {
-			do {
-				if(Thread.currentThread().isInterrupted()) throw new java.io.InterruptedIOException();
-				String url="https://archive.org/services/search/v1/scrape?q=" + ArchiveSource.encode(collectionQuery(collection,year)) + "&fields=identifier,date&count=" + INDEX_BATCH;
-				if(!cursor.isEmpty()) url+="&cursor="+ArchiveSource.encode(cursor);
-				JSONObject json=network.read(url);JSONArray items=json.getJSONArray("items");
-				loaded+=items.length();
-				if(loaded>INDEX_LIMIT || items.length()>INDEX_BATCH) throw new IndexTooLarge();
-				for(int i=0;i<items.length();i++) {
-					String date=ArchiveCatalog.date(ArchiveCatalog.text(items.getJSONObject(i),"date"));
-					if(date.isEmpty()) date="unknown";dates.put(date,dates.getOrDefault(date,0)+1);
-				}
-				if(progress!=null) progress.updateProgress("Loaded " + loaded + " recording dates");
-				cursor=json.optString("cursor","");if(cursor.equals("null")) cursor="";
-				if(!cursor.isEmpty() && !seen.add(cursor)) throw new IOException("Archive.org repeated a search cursor");
-			} while(!cursor.isEmpty());
+			// One bounded request replaces count + scrape for ordinary collections.
+			String url="https://archive.org/advancedsearch.php?q=" + ArchiveSource.encode(collectionQuery(collection,year))
+					+ "&fl[]=identifier&fl[]=date&rows=" + INDEX_LIMIT + "&output=json";
+			JSONObject response=fetch(url,refresh).getJSONObject("response");
+			JSONArray items=response.getJSONArray("docs");
+			if(response.getInt("numFound")>INDEX_LIMIT || items.length()>INDEX_LIMIT) throw new IndexTooLarge();
+			if(items.length()!=response.getInt("numFound")) throw new IOException("Archive.org returned an incomplete date index");
+			for(int i=0;i<items.length();i++) {
+				String date=ArchiveCatalog.date(ArchiveCatalog.text(items.getJSONObject(i),"date"));
+				if(date.isEmpty()) date="unknown";
+				dates.put(date,dates.getOrDefault(date,0)+1);
+			}
 			write(file,new JSONObject(dates));return dates;
 		} catch(Exception e) {
 			if(!refresh && file.isFile() && !(e instanceof IndexTooLarge) && !(e instanceof java.io.InterruptedIOException)) { cached=true;return timelineValues(read(file)); }
@@ -226,7 +221,9 @@ public final class ArchiveClient {
 			if(saved!=null) { cached=true;return saved; }
 			if(localOnly) throw new IOException("No downloaded tracks remain for this recording.");
 		}
-		return ArchiveCatalog.recording(identifier, fetch("https://archive.org/metadata/" + identifier, refresh), format);
+		JSONObject metadata=fetch("https://archive.org/metadata/" + identifier, refresh);
+		ArchiveHttp.rememberLocation(identifier,metadata);
+		return ArchiveCatalog.recording(identifier, metadata, format);
 	}
 
 	public List<MusicDirectory.Entry> entries(ArchiveCatalog.Recording recording) {
@@ -259,11 +256,13 @@ public final class ArchiveClient {
 	}
 
 	private boolean offline() { return Util.isOffline(context) || (!virtualNetwork && !Util.isNetworkConnected(context)); }
-	private boolean fresh(File file) { return System.currentTimeMillis() - file.lastModified() < CACHE_AGE; }
+	private boolean fresh(File file) { return fresh(file, CACHE_AGE); }
+	private boolean fresh(File file, long age) { return System.currentTimeMillis() - file.lastModified() < age; }
 
 	private JSONObject fetch(String url, boolean refresh) throws Exception {
 		File file = cacheFile(url);
-		if((!refresh || offline()) && file.isFile() && (offline() || fresh(file))) {
+		long age=url.startsWith("https://archive.org/metadata/") ? 5L * 60 * 1000 : CACHE_AGE;
+		if((!refresh || offline()) && file.isFile() && (offline() || fresh(file,age))) {
 			cached = true;
 			return read(file);
 		}

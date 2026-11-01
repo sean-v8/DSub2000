@@ -1471,7 +1471,8 @@ public class NowPlayingFragment extends SubsonicFragment implements OnGestureLis
 		switch (playerState) {
 			case DOWNLOADING:
 				if(currentPlaying != null) {
-					if(Util.isWifiRequiredForDownload(context) || Util.isLocalNetworkRequiredForDownload(context)) {
+					if(!Util.isNetworkConnected(context, true)
+							&& (Util.isWifiRequiredForDownload(context) || Util.isLocalNetworkRequiredForDownload(context))) {
 						statusTextView.setText(context.getResources().getString(R.string.download_playerstate_mobile_disabled));
 					} else {
 						long bytes = currentPlaying.getPartialFile().length();
@@ -1485,7 +1486,9 @@ public class NowPlayingFragment extends SubsonicFragment implements OnGestureLis
 			default:
 				if(currentPlaying != null) {
 					Entry entry = currentPlaying.getSong();
-					if(entry.getAlbum() != null) {
+					if(ArchiveSource.isArchive(entry.getId()) && currentPlaying.isFailedMax()) {
+						statusTextView.setText(getString(R.string.archive_download_failed, currentPlaying.getArchiveFailure()));
+					} else if(entry.getAlbum() != null) {
 						String artist = "";
 						if (entry.getDisplayArtist() != null) {
 							artist = currentPlaying.getSong().getDisplayArtist() + " - ";

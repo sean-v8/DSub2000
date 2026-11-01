@@ -288,7 +288,7 @@ public final class SessionLibrary {
         ArchiveClient archive = new ArchiveClient(service);
         if (id.equals("ia-root")) {
             result.add(folder("ia-saved-artists/1",service.getString(R.string.archive_downloaded),null));
-            result.add(folder("ia-collections-1", service.getString(R.string.archive_all_collections), null));
+            result.add(folder("ia-groups", service.getString(R.string.archive_all_collections), null));
             result.add(folder("ia-years-taperssection", "Tapers Section", null));
             android.content.SharedPreferences prefs = service.getSharedPreferences("archive", android.content.Context.MODE_PRIVATE);
             List<String> favorites = new ArrayList<>(prefs.getStringSet("collections", Collections.emptySet()));
@@ -298,6 +298,17 @@ public final class SessionLibrary {
                 if (!collection.equals("taperssection")) result.add(folder("ia-years-" + collection,
                         prefs.getString("title:" + collection, collection), null));
             }
+        } else if (id.equals("ia-groups")) {
+            for(char c='A'; c<='Z'; c++) result.add(folder("ia-group/"+c+"/1",Character.toString(c),null));
+            result.add(folder("ia-group/%23/1",service.getString(R.string.archive_other_group),null));
+        } else if (id.startsWith("ia-group/")) {
+            String[] parts=id.split("/",-1);
+            if(parts.length!=3) throw new IllegalArgumentException("Invalid Archive group");
+            String group=android.net.Uri.decode(parts[1]);
+            int page=Integer.parseInt(parts[2]);
+            ArchiveClient.Page found=archive.collections("",group,page,false);
+            for(ArchiveCatalog.Row row:found.rows) result.add(folder("ia-years-"+row.id,row.title,null));
+            if((long)page*ArchiveClient.PAGE_SIZE<found.total) result.add(folder("ia-group/"+parts[1]+"/"+(page+1),service.getString(R.string.archive_next),null));
         } else if (id.startsWith("ia-collections-")) {
             int page = Integer.parseInt(id.substring("ia-collections-".length()));
             if (page < 1) throw new IllegalArgumentException("Invalid Archive page");

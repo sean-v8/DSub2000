@@ -93,6 +93,19 @@ public final class ArchiveSource {
 		catch(java.io.UnsupportedEncodingException e) { throw new AssertionError(e); }
 	}
 
+	/** Match Archive's normalized sorting field without downloading the directory. */
+	public static String collectionGroupQuery(String group) {
+		if(group == null || group.isEmpty()) return "";
+		if(group.matches("[A-Z]")) return "titleSorter:" + group.toLowerCase(java.util.Locale.US) + "*";
+		if(!group.equals("#")) throw new IllegalArgumentException("Invalid collection group");
+		StringBuilder filter=new StringBuilder("NOT (");
+		for(char c='a'; c<='z'; c++) {
+			if(c!='a') filter.append(" OR ");
+			filter.append("titleSorter:").append(c).append('*');
+		}
+		return filter.append(')').toString();
+	}
+
 	public static String quoted(String value) {
 		return "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
 	}
