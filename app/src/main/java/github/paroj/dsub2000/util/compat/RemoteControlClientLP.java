@@ -96,6 +96,7 @@ public class RemoteControlClientLP {
         session = new MediaLibrarySession.Builder(context, player, new Callback())
                 .setId("DSub").setSessionExtras(extras)
                 .setLibraryErrorReplicationMode(MediaLibrarySession.LIBRARY_ERROR_REPLICATION_MODE_NON_FATAL)
+                .setPeriodicPositionUpdateEnabled(false)
                 .setSessionActivity(PendingIntent.getActivity(context, 0, activity, PendingIntent.FLAG_IMMUTABLE))
                 .build();
         imageLoader = SubsonicActivity.getStaticImageLoader(context);
