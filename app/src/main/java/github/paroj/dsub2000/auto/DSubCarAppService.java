@@ -57,12 +57,18 @@ public final class DSubCarAppService extends CarAppService {
                 };
             }
 
-            @Override
-            public void onDestroy() {
-                if (browser != null) {
-                    browser.disconnect();
-                }
-                super.onDestroy();
+            {
+                getLifecycle().addObserver(
+                        new androidx.lifecycle.DefaultLifecycleObserver() {
+                            @Override
+                            public void onDestroy(
+                                    @NonNull androidx.lifecycle.LifecycleOwner owner) {
+                                if (browser != null) {
+                                    browser.disconnect();
+                                    browser = null;
+                                }
+                            }
+                        });
             }
         };
     }
