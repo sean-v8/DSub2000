@@ -105,7 +105,13 @@ public final class SessionPlayer extends SimpleBasePlayer implements DownloadSer
                         .setIsDynamic(file.isStream()).build());
                 index++;
             }
-            int currentIndex = files.indexOf(current);
+            // DownloadService owns the queue cursor. Use that cursor for the Media3
+            // timeline rather than searching for the current DownloadFile, which
+            // may not be the same object as the corresponding queue entry.
+            int currentIndex = service.getCurrentPlayingIndex();
+            if (currentIndex < 0 || currentIndex >= files.size()) {
+                currentIndex = files.indexOf(current);
+            }
             PlayerState state = service.getPlayerState();
             int playbackState = STATE_IDLE;
             if (!playlist.isEmpty()) {
