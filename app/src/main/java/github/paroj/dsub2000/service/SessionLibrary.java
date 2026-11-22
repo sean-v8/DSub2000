@@ -220,7 +220,7 @@ public final class SessionLibrary {
             for (Entry album : music.getAlbumList(type, 20, 0, true, service, null).getChildren(true, false)) {
                 result.add(folder("md-" + album.getId(), album.getAlbumDisplay(), album.getArtist()));
             }
-        } else if ("library".equals(id) && !Util.isTagBrowsing(service)) {
+        } else if ("library".equals(id) && !Util.isOffline(service) && !Util.isTagBrowsing(service)) {
             for (MusicFolder folder : music.getMusicFolders(false, service, null)) {
                 result.add(folder("mf-" + folder.getId(), folder.getName(), null));
             }
@@ -228,7 +228,8 @@ public final class SessionLibrary {
             boolean artists = "library".equals(id);
             Indexes indexes = music.getIndexes(artists ? null : id.substring(3), false, service, null);
             for (Artist artist : indexes.getArtists()) {
-                result.add(folder((artists ? "art-" : "mdc-") + artist.getId(), artist.getName(), null));
+                result.add(folder((artists && !Util.isOffline(service) ? "art-" : "mdc-")
+                        + artist.getId(), artist.getName(), null));
             }
             if (!artists) {
                 for (Entry entry : indexes.getEntries()) {
