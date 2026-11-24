@@ -18,6 +18,8 @@
  */
 package github.paroj.dsub2000.service;
 
+import github.paroj.dsub2000.archive.ArchiveSource;
+
 import static androidx.mediarouter.media.MediaRouter.RouteInfo;
 import static github.paroj.dsub2000.domain.PlayerState.COMPLETED;
 import static github.paroj.dsub2000.domain.PlayerState.DOWNLOADING;
@@ -1922,6 +1924,7 @@ public class DownloadService extends MediaLibraryService {
 			if(Util.isAllowedToDownload(this)) {
 				reset();
 
+				currentPlaying.retryArchiveDownload();
 				bufferTask = new BufferTask(currentPlaying, position, start);
 				bufferTask.execute();
 			} else {
@@ -2228,7 +2231,7 @@ public class DownloadService extends MediaLibraryService {
 		}
 
 		// Need to download current playing and not casting?
-		if (currentPlaying != null && remoteState == LOCAL && currentPlaying != currentDownloading && !currentPlaying.isWorkDone()) {
+		if (currentPlaying != null && remoteState == LOCAL && currentPlaying != currentDownloading && !currentPlaying.isWorkDone() && !currentPlaying.isFailedMax()) {
 			// Cancel current download, if necessary.
 			if (currentDownloading != null) {
 				currentDownloading.cancelDownload();
@@ -2539,6 +2542,7 @@ public class DownloadService extends MediaLibraryService {
 		}
 		
 		final MusicDirectory.Entry entry = currentPlaying.getSong();
+		if(ArchiveSource.isArchive(entry.getId())) return;
 		int duration = getPlayerDuration();
 		
 		// If song is podcast or long go ahead and auto add a bookmark
@@ -2721,7 +2725,7 @@ public class DownloadService extends MediaLibraryService {
 
 	public void toggleStarred() {
 		final DownloadFile currentPlaying = this.currentPlaying;
-		if(currentPlaying == null) {
+		if(currentPlaying == null || ArchiveSource.isArchive(currentPlaying.getSong().getId())) {
 			return;
 		}
 
@@ -2753,7 +2757,7 @@ public class DownloadService extends MediaLibraryService {
 	}
 	public void setRating(int rating) {
 		final DownloadFile currentPlaying = this.currentPlaying;
-		if (currentPlaying == null) {
+		if (currentPlaying == null || ArchiveSource.isArchive(currentPlaying.getSong().getId())) {
 			return;
 		}
 		MusicDirectory.Entry entry = currentPlaying.getSong();
@@ -2982,6 +2986,11 @@ public class DownloadService extends MediaLibraryService {
 			while (!bufferComplete()) {
 				Thread.sleep(1000L);
 				if (isCancelled() || downloadFile.isFailedMax()) {
+					if(!isCancelled() && ArchiveSource.isArchive(downloadFile.getSong().getId())) {
+						synchronized(DownloadService.this) {
+							if(currentPlaying==downloadFile) setPlayerState(STOPPED);
+						}
+					}
 					return null;
 				} else if(!downloadFile.isFailedMax() && !downloadFile.isDownloading()) {
 					checkDownloads();

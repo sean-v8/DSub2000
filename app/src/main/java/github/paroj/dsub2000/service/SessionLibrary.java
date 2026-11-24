@@ -1,5 +1,12 @@
 package github.paroj.dsub2000.service;
 
+import github.paroj.dsub2000.archive.ArchiveCatalog;
+
+import github.paroj.dsub2000.archive.ArchiveClient;
+import github.paroj.dsub2000.archive.ArchiveLibrary;
+
+import github.paroj.dsub2000.archive.ArchiveSource;
+
 import android.os.Bundle;
 import android.util.Log;
 import android.util.LruCache;
@@ -172,6 +179,7 @@ public final class SessionLibrary {
             result.add(folder("albumLists", service.getString(R.string.main_albums_title), null));
             result.add(folder("library", service.getString(R.string.button_bar_browse), null));
             result.add(folder("playlists", service.getString(R.string.button_bar_playlists), null));
+            result.add(folder("ia-root", service.getString(R.string.archive_title), null));
             if (Util.getPreferences(service).getBoolean(Constants.PREFERENCES_KEY_PODCASTS_ENABLED, true)) {
                 result.add(folder("podcasts", service.getString(R.string.button_bar_podcasts), null));
             }
@@ -180,6 +188,7 @@ public final class SessionLibrary {
             }
             return result;
         }
+        if (id.startsWith("ia-")) return archiveChildren(id);
         if ("albumLists".equals(id)) {
             int[] categories = {R.string.main_albums_newest, R.string.main_albums_random,
                     R.string.main_albums_highest, R.string.main_albums_starred,
@@ -270,6 +279,98 @@ public final class SessionLibrary {
             }
         } else {
             throw new IllegalArgumentException("Unknown library parent: " + id);
+        }
+        return result;
+    }
+
+    private List<MediaItem> archiveChildren(String id) throws Exception {
+        List<MediaItem> result = new ArrayList<>();
+        ArchiveClient archive = new ArchiveClient(service);
+        if (id.equals("ia-root")) {
+            result.add(folder("ia-saved-artists/1",service.getString(R.string.archive_downloaded),null));
+            result.add(folder("ia-groups", service.getString(R.string.archive_all_collections), null));
+            result.add(folder("ia-years-taperssection", "Tapers Section", null));
+            android.content.SharedPreferences prefs = service.getSharedPreferences("archive", android.content.Context.MODE_PRIVATE);
+            List<String> favorites = new ArrayList<>(prefs.getStringSet("collections", Collections.emptySet()));
+            Collections.sort(favorites);
+            for (String collection : favorites) {
+                ArchiveSource.validateIdentifier(collection);
+                if (!collection.equals("taperssection")) result.add(folder("ia-years-" + collection,
+                        prefs.getString("title:" + collection, collection), null));
+            }
+        } else if (id.equals("ia-groups")) {
+            for(char c='A'; c<='Z'; c++) result.add(folder("ia-group/"+c+"/1",Character.toString(c),null));
+            result.add(folder("ia-group/%23/1",service.getString(R.string.archive_other_group),null));
+        } else if (id.startsWith("ia-group/")) {
+            String[] parts=id.split("/",-1);
+            if(parts.length!=3) throw new IllegalArgumentException("Invalid Archive group");
+            String group=android.net.Uri.decode(parts[1]);
+            int page=Integer.parseInt(parts[2]);
+            ArchiveClient.Page found=archive.collections("",group,page,false);
+            for(ArchiveCatalog.Row row:found.rows) result.add(folder("ia-years-"+row.id,row.title,null));
+            if((long)page*ArchiveClient.PAGE_SIZE<found.total) result.add(folder("ia-group/"+parts[1]+"/"+(page+1),service.getString(R.string.archive_next),null));
+        } else if (id.startsWith("ia-collections-")) {
+            int page = Integer.parseInt(id.substring("ia-collections-".length()));
+            if (page < 1) throw new IllegalArgumentException("Invalid Archive page");
+            ArchiveClient.Page found = archive.collections("", page, false);
+            for (ArchiveCatalog.Row row : found.rows) result.add(folder("ia-years-" + row.id, row.title, null));
+            if ((long) page * ArchiveClient.PAGE_SIZE < found.total) result.add(folder("ia-collections-" + (page + 1),
+                    service.getString(R.string.archive_next), null));
+        } else if (id.startsWith("ia-years-")) {
+            String collection = id.substring("ia-years-".length());
+            for (ArchiveCatalog.Row row : archive.years(collection, false, null)) {
+                result.add(folder(row.id.equals("unknown") ? "ia-recordings-" + collection + "/unknown/1"
+                        : "ia-dates-" + collection + "/" + row.id, row.title,
+                        row.count>0 ? service.getResources().getQuantityString(R.plurals.archive_recordings,row.count,row.count) : row.detail));
+            }
+        } else if (id.startsWith("ia-dates-")) {
+            String[] parts = id.substring("ia-dates-".length()).split("/", -1);
+            if (parts.length != 2 || !parts[1].matches("[0-9]{4}")) throw new IllegalArgumentException("Invalid Archive year");
+            for (ArchiveCatalog.Row row : archive.dates(parts[0], parts[1], false, null)) {
+                result.add(folder("ia-recordings-" + parts[0] + "/" + row.id + "/1", row.title,
+                        row.count>0 ? service.getResources().getQuantityString(R.plurals.archive_recordings,row.count,row.count) : row.detail));
+            }
+        } else if (id.startsWith("ia-recordings-")) {
+            String[] parts = id.substring("ia-recordings-".length()).split("/", -1);
+            if (parts.length != 3) throw new IllegalArgumentException("Invalid Archive date");
+            int page = Integer.parseInt(parts[2]);
+            if (page < 1) throw new IllegalArgumentException("Invalid Archive page");
+            ArchiveClient.Page found = archive.recordings(parts[0], parts[1], false, page);
+            for (ArchiveCatalog.Row row : found.rows) result.add(folder("ia-tracks-" + row.id, row.title, row.detail));
+            if ((long) page * ArchiveClient.PAGE_SIZE < found.total) result.add(folder("ia-recordings-"
+                    + parts[0] + "/" + parts[1] + "/" + (page + 1), service.getString(R.string.archive_next), null));
+        } else if (id.startsWith("ia-saved-")) {
+            String[] parts=id.split("/",-1);String kind=parts[0];
+            ArchiveLibrary library=ArchiveLibrary.get(service);ArchiveClient.Page found;
+            if(kind.equals("ia-saved-artists") && parts.length==2) found=library.artists(Integer.parseInt(parts[1]));
+            else if(kind.equals("ia-saved-years") && parts.length==3) found=library.years(android.net.Uri.decode(parts[1]),Integer.parseInt(parts[2]));
+            else if(kind.equals("ia-saved-shows") && parts.length==4) found=library.recordings(android.net.Uri.decode(parts[1]),parts[2],Integer.parseInt(parts[3]));
+            else throw new IllegalArgumentException("Invalid downloaded Archive folder");
+            for(ArchiveCatalog.Row row:found.rows) {
+                String target=kind.equals("ia-saved-artists") ? "ia-saved-years/"+ArchiveSource.encode(row.id)+"/1"
+                        : kind.equals("ia-saved-years") ? "ia-saved-shows/"+parts[1]+"/"+row.id+"/1" : "ia-local-tracks-"+row.id;
+                result.add(folder(target,row.title,row.detail));
+            }
+            int current=Integer.parseInt(parts[parts.length-1]);
+            if((long)current*ArchiveClient.PAGE_SIZE<found.total) result.add(folder(id.substring(0,id.lastIndexOf('/')+1)+(current+1),service.getString(R.string.archive_next),null));
+        } else if (id.startsWith("ia-tracks-") || id.startsWith("ia-local-tracks-")) {
+            boolean localOnly=id.startsWith("ia-local-tracks-");
+            String identifier = id.substring(localOnly ? "ia-local-tracks-".length() : "ia-tracks-".length());
+            boolean flac = service.getSharedPreferences("archive", android.content.Context.MODE_PRIVATE).getBoolean("flac", false);
+            ArchiveCatalog.Recording recording = archive.recording(identifier,
+                    flac ? ArchiveCatalog.Format.FLAC : ArchiveCatalog.Format.MP3, false, localOnly);
+            List<Entry> entries = archive.entries(recording);
+            if (!entries.isEmpty()) playOptions(result, localOnly ? "archive-local:"+identifier : ArchiveSource.itemId(identifier), Constants.INTENT_EXTRA_NAME_ID);
+            for (Entry entry : entries) {
+                MediaItem item=song(entry,entry.getId(),entry.getAlbum(),false,false);
+                if(localOnly) {
+                    Bundle extras=new Bundle(item.mediaMetadata.extras);extras.putBoolean("archiveLocalOnly",true);
+                    item=item.buildUpon().setMediaMetadata(item.mediaMetadata.buildUpon().setExtras(extras).build()).build();
+                }
+                result.add(item);
+            }
+        } else {
+            throw new IllegalArgumentException("Unknown Archive folder");
         }
         return result;
     }

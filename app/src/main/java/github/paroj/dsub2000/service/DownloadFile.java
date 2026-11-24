@@ -18,6 +18,8 @@
  */
 package github.paroj.dsub2000.service;
 
+import github.paroj.dsub2000.archive.ArchiveSource;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -53,8 +55,9 @@ public class DownloadFile implements BufferFile {
     private final MediaStoreService mediaStoreService;
     private DownloadTask downloadTask;
     private boolean save;
-	private boolean failedDownload = false;
-    private int failed = 0;
+	private volatile boolean failedDownload = false;
+	private volatile String archiveFailure;
+    private volatile int failed = 0;
     // Looking up the maximum bit rate asks the system for the active network, which is
     // too slow to repeat for every song while a large playlist is queued (issue #135).
     private static final int UNKNOWN_BITRATE = -1;
@@ -73,7 +76,7 @@ public class DownloadFile implements BufferFile {
     DownloadFile(Context context, MusicDirectory.Entry song, boolean save, FileUtil.SongFiles files) {
         this.context = context;
         this.song = song;
-        this.save = save;
+        this.save = save && !ArchiveSource.isStreamOnly(song.getId());
         saveFile = files.save();
         partialFile = files.partial();
         completeFile = files.complete();
@@ -104,6 +107,8 @@ public class DownloadFile implements BufferFile {
         return song.getBitRate() == null ? 160 : song.getBitRate();
     }
 	private int getActualBitrate() {
+		// Archive files are immutable format choices, never server-transcoded.
+		if(ArchiveSource.isArchive(song.getId())) return song.getBitRate() == null ? 0 : song.getBitRate();
 		int br = song.isVideo() ? Util.getMaxVideoBitrate(context) : Util.getMaxBitrate(context);
 		if(br == 0 && song.getTranscodedSuffix() != null && "mp3".equals(song.getTranscodedSuffix().toLowerCase())) {
 			if(song.getBitRate() != null) {
@@ -140,6 +145,7 @@ public class DownloadFile implements BufferFile {
 
 	@Override
 	public long getEstimatedSize() {
+		if(ArchiveSource.isArchive(song.getId()) && song.getSize() != null && song.getSize() > 0) return song.getSize();
 		if(contentLength != null) {
 			return contentLength;
 		}
@@ -278,8 +284,18 @@ public class DownloadFile implements BufferFile {
         return failedDownload;
     }
     public boolean isFailedMax() {
-    	return failed > MAX_FAILURES;
+		return ArchiveSource.isArchive(song.getId()) ? failed >= 2 : failed > MAX_FAILURES;
     }
+
+	public String getArchiveFailure() { return archiveFailure; }
+
+	public void retryArchiveDownload() {
+		if(ArchiveSource.isArchive(song.getId()) && isFailedMax()) {
+			// Keep the failed flag until preDownload: the scheduler uses it to
+			// replace a failed currentDownloading instance when Play is retried.
+			failed=0; archiveFailure=null;
+		}
+	}
 
     public void delete() {
         cancelDownload();
@@ -292,6 +308,7 @@ public class DownloadFile implements BufferFile {
         Util.delete(partialFile);
         Util.delete(completeFile);
         Util.delete(saveFile);
+		updateArchiveLibrary();
 		FileUtil.deleteEmptyDir(parent);
     }
 
@@ -365,7 +382,14 @@ public class DownloadFile implements BufferFile {
 			}
 		}
 	}
+	private void updateArchiveLibrary() {
+		if(ArchiveSource.isArchive(song.getId())) {
+			try { github.paroj.dsub2000.archive.ArchiveLibrary.get(context).completed(this); }
+			catch(Exception error) { Log.e(TAG, "Could not update Archive download catalogue", error); }
+		}
+	}
 	private void saveToStore() {
+		updateArchiveLibrary();
 		if(!Util.getPreferences(context).getBoolean(Constants.PREFERENCES_KEY_HIDE_MEDIA, false)) {
 			try {
 				mediaStoreService.saveInMediaStore(this);
@@ -375,6 +399,7 @@ public class DownloadFile implements BufferFile {
 		}
 	}
 	private void renameInStore(File start, File end) {
+		updateArchiveLibrary();
 		try {
 			mediaStoreService.renameInMediaStore(start, end);
 		} catch(Exception e) {
@@ -479,10 +504,17 @@ public class DownloadFile implements BufferFile {
 				} catch(Exception e) {
 					compare = true;
 				}
+				if(ArchiveSource.isArchive(song.getId())) {
+					Long size = song.getSize();
+					if(size != null && size > 0 && partialFile.length() > size) Util.delete(partialFile);
+					compare = size == null || size <= 0 || partialFile.length() != size;
+				}
 				if(compare) {
 					// Attempt partial HTTP GET, appending to the file if it exists.
 					HttpURLConnection connection = musicService.getDownloadInputStream(context, song, partialFile.length(), bitRate, DownloadTask.this);
-					long contentLength = connection.getContentLength();
+					long contentLength = connection.getContentLengthLong();
+					if(ArchiveSource.isArchive(song.getId()) && contentLength > 0
+							&& connection.getResponseCode() == HttpURLConnection.HTTP_PARTIAL) contentLength += partialFile.length();
 					if(contentLength > 0) {
 						Log.i(TAG, "Content Length: " + contentLength);
 						DownloadFile.this.contentLength = contentLength;
@@ -506,6 +538,10 @@ public class DownloadFile implements BufferFile {
 						throw new Exception("Download of '" + song + "' failed.  File is 0 bytes long.");
 					}
 
+					if(ArchiveSource.isArchive(song.getId()) && song.getSize() != null
+							&& song.getSize() > 0 && partialFile.length() != song.getSize()) {
+						throw new IOException("Incomplete Archive.org download; will resume");
+					}
 					downloadAndSaveCoverArt(musicService);
 				}
 
@@ -521,11 +557,13 @@ public class DownloadFile implements BufferFile {
 				Util.delete(completeFile);
 				Util.delete(saveFile);
 				if(!isCancelled()) {
+					if(ArchiveSource.isArchive(song.getId())) archiveFailure=x.getMessage();
 					failed = MAX_FAILURES + 1;
 					failedDownload = true;
 					Log.w(TAG, "Failed to download '" + song + "'.", x);
 				}
 			} catch(IOException x) {
+				if(ArchiveSource.isArchive(song.getId()) && !isCancelled()) { failed++; archiveFailure=x.getMessage(); }
 				Util.delete(completeFile);
 				Util.delete(saveFile);
 				if(!isCancelled()) {
@@ -537,6 +575,7 @@ public class DownloadFile implements BufferFile {
                 Util.delete(saveFile);
                 if (!isCancelled()) {
                 	failed++;
+					if(ArchiveSource.isArchive(song.getId())) archiveFailure=x.getMessage();
                     failedDownload = true;
                     Log.w(TAG, "Failed to download '" + song + "'.", x);
                 }

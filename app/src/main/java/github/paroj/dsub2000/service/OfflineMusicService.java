@@ -115,6 +115,10 @@ public class OfflineMusicService implements MusicService {
         return getMusicDirectory(id, artistName, refresh, context, progressListener, false);
     }
 	private MusicDirectory getMusicDirectory(String id, String artistName, boolean refresh, Context context, ProgressListener progressListener, boolean isPodcast) throws Exception {
+		if(github.paroj.dsub2000.archive.ArchiveSource.isArchive(id)) {
+			Entry folder=new Entry(id);folder.setDirectory(true);
+			id=FileUtil.getAlbumDirectory(context,folder).getAbsolutePath();
+		}
 		File dir = new File(id);
 		MusicDirectory result = new MusicDirectory();
 		result.setName(dir.getName());
@@ -166,6 +170,10 @@ public class OfflineMusicService implements MusicService {
         return createEntry(context, file, name, load, false);
     }
 	private Entry createEntry(Context context, File file, String name, boolean load, boolean isPodcast) {
+		if(!isPodcast && file.isFile() && file.getAbsolutePath().startsWith(new File(FileUtil.getMusicDirectory(context),"Live Music Archive").getAbsolutePath()+File.separator)) {
+			Entry archive=github.paroj.dsub2000.archive.ArchiveLibrary.get(context).entryForFile(file);
+			if(archive!=null) return archive;
+		}
 		Entry entry;
 		if(isPodcast) {
 			PodcastEpisode episode = new PodcastEpisode();

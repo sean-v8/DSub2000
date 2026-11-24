@@ -1,0 +1,53 @@
+<!-- English fallback for the initial Archive browser. -->
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+	<string name="archive_title">Live Music Archive</string>
+	<string name="archive_play_all">Play all</string>
+	<string name="archive_enqueue">Enqueue</string>
+	<string name="archive_details">Details</string>
+	<string name="archive_previous">Previous</string>
+	<string name="archive_next">Next</string>
+	<string name="archive_find_collection">Find collection</string>
+	<string name="archive_open_collection">Open collection by identifier</string>
+	<string name="archive_favorites">Favorite collections</string>
+	<string name="archive_all_collections">All collections</string>
+	<string name="archive_favorite">Favorite collection</string>
+	<string name="archive_unfavorite">Remove collection favorite</string>
+	<string name="archive_format">Audio format</string>
+	<string name="archive_format_mp3">MP3 (smaller downloads)</string>
+	<string name="archive_format_flac">FLAC when available</string>
+	<string name="archive_open_web">Open on Archive.org</string>
+	<string name="archive_download">Download recording</string>
+	<string name="archive_play_track">Play from this track</string>
+	<string name="archive_enqueue_track">Enqueue track</string>
+	<string name="archive_download_track">Download track</string>
+	<string name="archive_loading">Loading Archive.org…</string>
+	<string name="archive_empty">No results. Pull down to refresh.</string>
+	<string name="archive_error">Could not load Archive.org: %1$s\nPull down to retry.</string>
+	<string name="archive_cached">Saved metadata</string>
+	<plurals name="archive_page">
+		<item quantity="one">Page %1$d · %2$d result</item>
+		<item quantity="other">Page %1$d · %2$d results</item>
+	</plurals>
+	<plurals name="archive_tracks">
+		<item quantity="one">%1$d track · %2$s</item>
+		<item quantity="other">%1$d tracks · %2$s</item>
+	</plurals>
+	<plurals name="archive_recordings">
+		<item quantity="one">%1$d recording</item>
+		<item quantity="other">%1$d recordings</item>
+	</plurals>
+	<string name="archive_stream_only">Stream only · permanent downloads unavailable</string>
+	<string name="archive_no_tracks">No supported MP3 or FLAC tracks are currently available.</string>
+	<string name="archive_queued">Added to queue</string>
+	<string name="archive_downloading">Added to downloads</string>
+	<string name="archive_player_unavailable">Player is starting. Please try again.</string>
+	<string name="archive_identifier_hint">Collection identifier, e.g. ClubdElf or taperssection</string>
+	<string name="archive_invalid_identifier">Enter a valid Archive.org collection identifier.</string>
+	<string name="archive_no_favorites">No favorite collections yet. Open a collection and choose Favorite collection.</string>
+	<string name="archive_source_only">This operation requires tracks from your Subsonic server.</string>
+	<string name="archive_downloaded">Downloaded recordings</string>
+	<string name="archive_lazy_year">Large collection · dates load when opened; some years may be empty</string>
+	<string name="archive_lazy_day">Large year · open to check recordings for this date</string>
+	<string name="archive_other_group">0–9 / Other</string>
+	<string name="archive_download_failed">Archive download failed: %1$s. Tap Play to retry.</string>
+</resources>

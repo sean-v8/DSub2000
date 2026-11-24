@@ -18,6 +18,8 @@
  */
 package github.paroj.dsub2000.activity;
 
+import github.paroj.dsub2000.fragments.ArchiveFragment;
+
 import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.app.Dialog;
@@ -733,6 +735,8 @@ public class SubsonicFragmentActivity extends SubsonicActivity implements Downlo
 			return new SelectPodcastsFragment();
 		} else if("Bookmark".equals(fragmentType)) {
 			return new SelectBookmarkFragment();
+		} else if("Archive".equals(fragmentType)) {
+			return new ArchiveFragment();
 		} else if("Internet Radio".equals(fragmentType)) {
 			return new SelectInternetRadioStationFragment();
 		} else if("Video".equals(fragmentType)) {

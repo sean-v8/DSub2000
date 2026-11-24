@@ -1,5 +1,7 @@
 package github.paroj.dsub2000.service;
 
+import github.paroj.dsub2000.archive.ArchiveSource;
+
 import android.content.Context;
 import android.util.Log;
 
@@ -34,11 +36,15 @@ public class Scrobbler {
 	}
 
 	public void scrobble(final Context context, final DownloadFile song, final boolean submission, final boolean isPastCutoff) {
-		if(song == null) {
+		if(song == null || ArchiveSource.isArchive(song.getSong().getId())) {
 			return;
 		}
 
 		final String id = song.getSong().getId();
+		if(Util.isOffline(context)) {
+			github.paroj.dsub2000.util.Pair<Integer, String> online = SongDBHandler.getHandler(context).getOnlineSongId(song);
+			if(online != null && ArchiveSource.isArchive(online.getSecond())) return;
+		}
 		// Avoid duplicate registrations.
 		if (submission && id.equals(lastSubmission)) {
 			return;
